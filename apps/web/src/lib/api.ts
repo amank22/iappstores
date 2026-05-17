@@ -1,9 +1,12 @@
 import {
+  AppListResponseSchema,
   AppsResponseSchema,
   SearchResponseSchema,
   SourcesResponseSchema,
-  type AppDto,
+  type AppCategory,
+  type AppListResponse,
   type AppsResponse,
+  type IosVersionOperator,
   type SearchResponse,
   type SourceDto,
   type SourcesResponse
@@ -11,9 +14,34 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
+export type AppQueryOptions = {
+  sourceId?: string;
+  category?: AppCategory;
+  iosVersion?: string;
+  iosVersionOperator?: IosVersionOperator;
+  page?: number;
+  pageSize?: number;
+};
+
 type Parser<T> = {
   parse: (data: unknown) => T;
 };
+
+function parseErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === "object" && data !== null && "error" in data) {
+    const error = (data as { error?: { message?: unknown } }).error;
+    if (typeof error?.message === "string" && error.message.trim().length > 0) {
+      return error.message;
+    }
+  }
+
+  return fallback;
+}
+
+function summarizeTextBody(text: string): string {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
+}
 
 async function request<T>(path: string, parser: Parser<T>): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -21,14 +49,24 @@ async function request<T>(path: string, parser: Parser<T>): Promise<T> {
       accept: "application/json"
     }
   });
-  const json = (await response.json()) as unknown;
+
+  const text = await response.text();
+  let json: unknown;
+
+  if (text.trim().length > 0) {
+    try {
+      json = JSON.parse(text) as unknown;
+    } catch {
+      const summary = summarizeTextBody(text);
+      const message = response.ok
+        ? "The API returned an invalid JSON response."
+        : `Request failed with ${response.status} ${response.statusText || "error"}${summary ? `: ${summary}` : ""}`;
+      throw new Error(message);
+    }
+  }
 
   if (!response.ok) {
-    const message =
-      typeof json === "object" && json !== null && "error" in json
-        ? String((json as { error?: { message?: unknown } }).error?.message ?? "Request failed")
-        : "Request failed";
-    throw new Error(message);
+    throw new Error(parseErrorMessage(json, `Request failed with ${response.status} ${response.statusText || "error"}`));
   }
 
   return parser.parse(json);
@@ -43,16 +81,39 @@ export async function fetchSourceApps(sourceId: string): Promise<AppsResponse> {
   return request(`/api/sources/${encodeURIComponent(sourceId)}/apps`, AppsResponseSchema);
 }
 
-export async function searchApps(query: string, sourceId?: string): Promise<SearchResponse> {
+function toQueryString(options: AppQueryOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.sourceId) {
+    params.set("sourceId", options.sourceId);
+  }
+  if (options.category && options.category !== "all") {
+    params.set("category", options.category);
+  }
+  if (options.iosVersion) {
+    params.set("iosVersion", options.iosVersion);
+    params.set("iosVersionOperator", options.iosVersionOperator ?? "lte");
+  }
+  if (options.page) {
+    params.set("page", String(options.page));
+  }
+  if (options.pageSize) {
+    params.set("pageSize", String(options.pageSize));
+  }
+
+  return params.toString();
+}
+
+export async function fetchApps(options: AppQueryOptions = {}): Promise<AppListResponse> {
+  const query = toQueryString(options);
+  return request(`/api/apps${query ? `?${query}` : ""}`, AppListResponseSchema);
+}
+
+export async function searchApps(query: string, options: AppQueryOptions = {}): Promise<SearchResponse> {
   const params = new URLSearchParams({ q: query });
-  if (sourceId) {
-    params.set("sourceId", sourceId);
+  const optionParams = toQueryString(options);
+  if (optionParams.length > 0) {
+    new URLSearchParams(optionParams).forEach((value, key) => params.set(key, value));
   }
 
   return request(`/api/search?${params.toString()}`, SearchResponseSchema);
-}
-
-export async function fetchAllApps(sources: SourceDto[]): Promise<AppDto[]> {
-  const responses = await Promise.all(sources.map((source) => fetchSourceApps(source.id)));
-  return responses.flatMap((response) => response.apps);
 }

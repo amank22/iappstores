@@ -37,6 +37,14 @@ docker run --rm -p 3000:3000 iappstores
 
 The frontend is served on port `3000`. The API runs inside the same container on port `4000`, and Next.js proxies `/api/*` requests to it.
 
+For Coolify health checks, use:
+
+```txt
+Port: 3000
+Path: /health
+Expected status: 200
+```
+
 ## Publishing
 
 GitHub Actions verifies pull requests and pushes to `main`. On each `main` push, it builds and publishes the Docker image to GitHub Container Registry as:

@@ -13,13 +13,53 @@ const QueryStringSchema = z.preprocess((value) => {
   return undefined;
 }, z.string().min(1));
 
+const QueryPositiveIntegerSchema = (defaultValue: number, maxValue: number) =>
+  z.preprocess((value) => {
+    const raw = Array.isArray(value) ? value[0] : value;
+
+    if (raw === undefined || raw === null || raw === "") {
+      return defaultValue;
+    }
+
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : raw;
+  }, z.number().int().min(1).max(maxValue));
+
+export const AppCategorySchema = z.enum(["all", "recent", "games", "tools", "media", "education"]);
+export const DerivedAppCategorySchema = z.enum(["games", "tools", "media", "education"]);
+export const IosVersionOperatorSchema = z.enum(["lte", "gte"]);
+export const IosVersionQuerySchema = z.preprocess((value) => {
+  const raw = Array.isArray(value) ? value[0] : value;
+
+  if (typeof raw !== "string") {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}, z.string().regex(/^\d+(?:\.\d+){0,2}$/).optional());
+
 export const SourceIdParamSchema = z.object({
   sourceId: z.string().trim().min(1)
 });
 
+export const BrowseAppsQuerySchema = z.object({
+  sourceId: QueryStringSchema.optional(),
+  page: QueryPositiveIntegerSchema(1, 10_000),
+  pageSize: QueryPositiveIntegerSchema(24, 60),
+  category: AppCategorySchema.default("all"),
+  iosVersion: IosVersionQuerySchema,
+  iosVersionOperator: IosVersionOperatorSchema.default("lte")
+});
+
 export const SearchAppsQuerySchema = z.object({
   q: QueryStringSchema,
-  sourceId: QueryStringSchema.optional()
+  sourceId: QueryStringSchema.optional(),
+  page: QueryPositiveIntegerSchema(1, 10_000),
+  pageSize: QueryPositiveIntegerSchema(24, 60),
+  category: AppCategorySchema.default("all"),
+  iosVersion: IosVersionQuerySchema,
+  iosVersionOperator: IosVersionOperatorSchema.default("lte")
 });
 
 export const SourceDtoSchema = z.object({
@@ -40,6 +80,7 @@ export const AppDtoSchema = z.object({
   developerName: z.string().nullable(),
   subtitle: z.string().nullable(),
   description: z.string().nullable(),
+  category: DerivedAppCategorySchema,
   iconUrl: z.string().url().nullable(),
   screenshots: z.array(z.string().url()),
   latestVersion: z.string().nullable(),
@@ -50,18 +91,43 @@ export const AppDtoSchema = z.object({
   minOSVersion: z.string().nullable()
 });
 
+export const PaginationSchema = z.object({
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+  hasNextPage: z.boolean(),
+  hasPreviousPage: z.boolean()
+});
+
+export const AppCategoryFacetSchema = z.object({
+  id: AppCategorySchema,
+  name: z.string(),
+  appCount: z.number().int().nonnegative()
+});
+
 export const SourcesResponseSchema = z.object({
   sources: z.array(SourceDtoSchema)
 });
 
 export const AppsResponseSchema = z.object({
   source: SourceDtoSchema,
-  apps: z.array(AppDtoSchema)
+  apps: z.array(AppDtoSchema),
+  pagination: PaginationSchema,
+  categories: z.array(AppCategoryFacetSchema)
+});
+
+export const AppListResponseSchema = z.object({
+  apps: z.array(AppDtoSchema),
+  pagination: PaginationSchema,
+  categories: z.array(AppCategoryFacetSchema)
 });
 
 export const SearchResponseSchema = z.object({
   query: SearchAppsQuerySchema,
-  apps: z.array(AppDtoSchema)
+  apps: z.array(AppDtoSchema),
+  pagination: PaginationSchema,
+  categories: z.array(AppCategoryFacetSchema)
 });
 
 export const ApiErrorResponseSchema = z.object({
@@ -73,10 +139,17 @@ export const ApiErrorResponseSchema = z.object({
 });
 
 export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
+export type AppCategory = z.infer<typeof AppCategorySchema>;
+export type DerivedAppCategory = z.infer<typeof DerivedAppCategorySchema>;
+export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
+export type BrowseAppsQuery = z.infer<typeof BrowseAppsQuerySchema>;
 export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
+export type Pagination = z.infer<typeof PaginationSchema>;
+export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;
 export type SourcesResponse = z.infer<typeof SourcesResponseSchema>;
 export type AppsResponse = z.infer<typeof AppsResponseSchema>;
+export type AppListResponse = z.infer<typeof AppListResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;

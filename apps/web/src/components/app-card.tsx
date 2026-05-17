@@ -25,24 +25,26 @@ export function AppCard({ app }: { app: AppDto }) {
 
   return (
     <Card className="flex h-full flex-col overflow-hidden">
-      <CardHeader className="gap-4">
-        <div className="flex gap-4">
+      <CardHeader className="gap-3 p-4 sm:gap-4 sm:p-6">
+        <div className="flex gap-3 sm:gap-4">
           {app.iconUrl ? (
             // External repository icons are user-provided, so a plain img keeps configuration simple.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={app.iconUrl}
               alt={`${app.name} icon`}
-              className="h-16 w-16 rounded-2xl border border-border object-cover"
+              className="h-14 w-14 rounded-2xl border border-border object-cover sm:h-16 sm:w-16"
             />
           ) : (
-            <div className="grid h-16 w-16 place-items-center rounded-2xl border border-border bg-secondary text-xl font-bold">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-border bg-secondary text-xl font-bold sm:h-16 sm:w-16">
               {app.name.slice(0, 1)}
             </div>
           )}
           <div className="min-w-0 flex-1">
             <CardTitle className="truncate">{app.name}</CardTitle>
-            <p className="mt-2 text-sm text-muted-foreground">{app.developerName ?? "Unknown developer"}</p>
+            <p className="mt-1 truncate text-sm text-muted-foreground sm:mt-2">
+              {app.developerName ?? "Unknown developer"}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -51,9 +53,9 @@ export function AppCard({ app }: { app: AppDto }) {
           {app.minOSVersion ? <Badge variant="outline">iOS {app.minOSVersion}+</Badge> : null}
         </div>
       </CardHeader>
-      <CardContent className="flex-1 space-y-4">
+      <CardContent className="flex-1 space-y-3 p-4 pt-0 sm:space-y-4 sm:p-6 sm:pt-0">
         {app.subtitle ? <p className="text-sm font-medium">{app.subtitle}</p> : null}
-        {app.description ? <p className="line-clamp-4 text-sm text-muted-foreground">{app.description}</p> : null}
+        {app.description ? <p className="line-clamp-2 text-sm text-muted-foreground sm:line-clamp-4">{app.description}</p> : null}
         <dl className="grid grid-cols-1 gap-2 text-xs text-muted-foreground">
           {app.bundleIdentifier ? (
             <div>
@@ -69,7 +71,7 @@ export function AppCard({ app }: { app: AppDto }) {
           ) : null}
         </dl>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0">
         {app.downloadURL ? (
           <a href={app.downloadURL} rel="noreferrer" target="_blank" className={buttonClasses({ className: "w-full" })}>
             Download IPA
