@@ -71,6 +71,16 @@ export const SourceDtoSchema = z.object({
   appCount: z.number().int().nonnegative().optional()
 });
 
+export const AppDownloadOptionSchema = z.object({
+  sourceId: z.string(),
+  sourceName: z.string(),
+  latestVersion: z.string().nullable(),
+  versionDate: z.string().nullable(),
+  downloadURL: z.string().url().nullable(),
+  size: z.number().int().nonnegative().nullable(),
+  minOSVersion: z.string().nullable()
+});
+
 export const AppDtoSchema = z.object({
   id: z.string(),
   sourceId: z.string(),
@@ -82,13 +92,15 @@ export const AppDtoSchema = z.object({
   description: z.string().nullable(),
   category: DerivedAppCategorySchema,
   iconUrl: z.string().url().nullable(),
+  appStoreUrl: z.string().url().nullable(),
   screenshots: z.array(z.string().url()),
   latestVersion: z.string().nullable(),
   versionDate: z.string().nullable(),
   versionDescription: z.string().nullable(),
   downloadURL: z.string().url().nullable(),
   size: z.number().int().nonnegative().nullable(),
-  minOSVersion: z.string().nullable()
+  minOSVersion: z.string().nullable(),
+  downloadOptions: z.array(AppDownloadOptionSchema)
 });
 
 export const PaginationSchema = z.object({
@@ -145,6 +157,7 @@ export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
 export type BrowseAppsQuery = z.infer<typeof BrowseAppsQuerySchema>;
 export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
+export type AppDownloadOption = z.infer<typeof AppDownloadOptionSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;

@@ -22,9 +22,12 @@ npm run build
 npm run typecheck
 npm run lint
 npm run test
+npm run validate:sources
 ```
 
 The root `rebuild` script cleans and rebuilds packages in dependency order, starting with shared contracts.
+
+`validate:sources` reads `repolist.txt`, fetches each unique URL, checks whether it returns compatible AltStore-style JSON, and prints working/failing sources with app counts and sample apps.
 
 ## Docker
 
@@ -37,6 +40,16 @@ docker run --rm -p 3000:3000 iappstores
 
 The frontend is served on port `3000`. The API runs inside the same container on port `4000`, and Next.js proxies `/api/*` requests to it.
 
+The API keeps a persistent SQLite cache for normalized repository data. In Docker, the cache lives at `/data/iappstores.sqlite`; mount a Coolify volume to `/data` so the cache survives deploys and restarts.
+
+Optional cache settings:
+
+```txt
+DATA_DIR=/data
+REPO_CACHE_TTL_HOURS=24
+REPO_REFRESH_CONCURRENCY=6
+```
+
 For Coolify health checks, use:
 
 ```txt
@@ -45,9 +58,9 @@ Path: /health
 Expected status: 200
 ```
 
-## Publishing
+## CI and Publishing
 
-GitHub Actions verifies pull requests and pushes to `main`. On each `main` push, it builds and publishes the Docker image to GitHub Container Registry as:
+GitHub Actions uses separate workflows for verification and publishing. `Verify` runs on pull requests and pushes to `main`; `Publish Docker image` runs after `Verify` succeeds on `main` and publishes to GitHub Container Registry as:
 
 ```txt
 ghcr.io/<owner>/<repo>:latest

@@ -10,13 +10,32 @@ import {
   type SourcesResponse
 } from "@iappstores/contracts";
 import { sendError } from "./http.js";
-import { filterAppsByCategory, filterAppsByIosVersion, getCategoryFacets, paginateApps, searchApps } from "./normalizer.js";
+import {
+  filterAppsByCategory,
+  filterAppsByIosVersion,
+  getCategoryFacets,
+  groupAppsByBundleId,
+  paginateApps,
+  searchApps
+} from "./normalizer.js";
+import { closeRepoCacheStore, initRepoCacheStore } from "./repoCacheStore.js";
 import { getSourceApps } from "./repoClient.js";
+import { startRepoRefreshWorker } from "./repoRefreshWorker.js";
 import { findSource, sourceToDto, SOURCES } from "./sources.js";
 
 const app = express();
 const port = Number(process.env.API_PORT ?? 4000);
 const frontendOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+
+initRepoCacheStore();
+startRepoRefreshWorker(SOURCES);
+process.on("exit", closeRepoCacheStore);
+
+async function getAppsForSources(sources: typeof SOURCES) {
+  const results = await Promise.allSettled(sources.map((source) => getSourceApps(source)));
+
+  return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+}
 
 app.use(
   cors({
@@ -32,18 +51,9 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/api/sources", async (_req, res) => {
-  const sources = await Promise.all(
-    SOURCES.map(async (source) => {
-      try {
-        const apps = await getSourceApps(source);
-        return sourceToDto(source, apps.length);
-      } catch {
-        return sourceToDto(source);
-      }
-    })
-  );
-
-  const body: SourcesResponse = { sources };
+  const body: SourcesResponse = {
+    sources: SOURCES.map((source) => sourceToDto(source))
+  };
   res.json(body);
 });
 
@@ -64,11 +74,11 @@ app.get("/api/apps", async (req, res) => {
   }
 
   try {
-    const sourceApps = await Promise.all(selectedSources.map((source) => getSourceApps(source)));
-    const allApps = sourceApps.flat();
+    const allApps = await getAppsForSources(selectedSources);
     const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
-    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
+    const groupedApps = groupAppsByBundleId(filteredApps);
+    const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: AppListResponse = {
       apps: pagedApps.apps,
       pagination: pagedApps.pagination,
@@ -105,7 +115,8 @@ app.get("/api/sources/:sourceId/apps", async (req, res) => {
     const allApps = await getSourceApps(source);
     const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
-    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
+    const groupedApps = groupAppsByBundleId(filteredApps);
+    const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: AppsResponse = {
       source: sourceToDto(source, allApps.length),
       apps: pagedApps.apps,
@@ -138,11 +149,12 @@ app.get("/api/search", async (req, res) => {
   }
 
   try {
-    const sourceApps = await Promise.all(selectedSources.map((source) => getSourceApps(source)));
-    const matchedApps = sourceApps.flatMap((appsForSource) => searchApps(appsForSource, parsedQuery.data.q));
+    const allApps = await getAppsForSources(selectedSources);
+    const matchedApps = searchApps(allApps, parsedQuery.data.q);
     const categorizedApps = filterAppsByCategory(matchedApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
-    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
+    const groupedApps = groupAppsByBundleId(filteredApps);
+    const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: SearchResponse = {
       query: parsedQuery.data,
       apps: pagedApps.apps,
