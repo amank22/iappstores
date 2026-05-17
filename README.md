@@ -69,6 +69,8 @@ Path: /health
 Expected status: 200
 ```
 
+The Docker image includes `curl` and a container healthcheck for `http://127.0.0.1:3000/health`, which Coolify can use during rolling deployments.
+
 ## CI and Publishing
 
 GitHub Actions uses separate workflows for verification and publishing. `Verify` runs on pull requests and pushes to `main`; `Publish Docker image` runs after `Verify` succeeds on `main` and publishes to GitHub Container Registry as:

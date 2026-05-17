@@ -129,7 +129,8 @@ export function AppCard({ app }: { app: AppDto }) {
   const hasRepositoryNotes = repositoryNotes.length > 0;
   const hasAppStoreDetails = Boolean(primaryGenreName || rating || appStore?.version || appStore?.minimumOsVersion);
   const hasDetails = Boolean(primaryDescription || hasRepositoryNotes || app.bundleIdentifier || appStore);
-  const appPagePath = `/apps/${encodeURIComponent(app.id)}`;
+  const appPageId = app.bundleIdentifier ?? (app.id.startsWith("bundle:") ? app.id.slice("bundle:".length) : app.id);
+  const appPagePath = `/apps/${encodeURIComponent(appPageId)}`;
   const [isDownloadPickerOpen, setIsDownloadPickerOpen] = useState(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
 

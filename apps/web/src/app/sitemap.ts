@@ -16,6 +16,10 @@ function getLastModified(date: string | null): Date {
   return Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
 }
 
+function getShareId(app: { id: string; bundleIdentifier: string | null }): string {
+  return app.bundleIdentifier ?? (app.id.startsWith("bundle:") ? app.id.slice("bundle:".length) : app.id);
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
     {
@@ -41,7 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
       for (const app of response.apps) {
         entries.push({
-          url: getAbsoluteUrl(`/apps/${encodeURIComponent(app.id)}`),
+          url: getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`),
           lastModified: getLastModified(app.versionDate),
           changeFrequency: "weekly",
           priority: 0.7
