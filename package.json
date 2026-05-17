@@ -1,0 +1,23 @@
+{
+  "name": "iappstores",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @iappstores/contracts && concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev -w @iappstores/api",
+    "dev:web": "npm run dev -w @iappstores/web",
+    "build": "npm run build -w @iappstores/contracts && npm run build -w @iappstores/api && npm run build -w @iappstores/web",
+    "rebuild": "npm run clean -w @iappstores/contracts && npm run build -w @iappstores/contracts && npm run clean -w @iappstores/api && npm run build -w @iappstores/api && npm run clean -w @iappstores/web && npm run build -w @iappstores/web",
+    "lint": "npm run lint -w @iappstores/api && npm run lint -w @iappstores/web",
+    "typecheck": "npm run build -w @iappstores/contracts && npm run typecheck -w @iappstores/api && npm run typecheck -w @iappstores/web",
+    "test": "npm run test -w @iappstores/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}
