@@ -1,18 +1,18 @@
 import {
   AppListResponseSchema,
+  AppResponseSchema,
   AppsResponseSchema,
   SearchResponseSchema,
   SourcesResponseSchema,
   type AppCategory,
   type AppListResponse,
+  type AppResponse,
   type AppsResponse,
   type IosVersionOperator,
   type SearchResponse,
   type SourceDto,
   type SourcesResponse
 } from "@iappstores/contracts";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export type AppQueryOptions = {
   sourceId?: string;
@@ -21,11 +21,20 @@ export type AppQueryOptions = {
   iosVersionOperator?: IosVersionOperator;
   page?: number;
   pageSize?: number;
+  includeAppStore?: boolean;
 };
 
 type Parser<T> = {
   parse: (data: unknown) => T;
 };
+
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+  }
+
+  return process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:4000";
+}
 
 function parseErrorMessage(data: unknown, fallback: string): string {
   if (typeof data === "object" && data !== null && "error" in data) {
@@ -44,7 +53,7 @@ function summarizeTextBody(text: string): string {
 }
 
 async function request<T>(path: string, parser: Parser<T>): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     headers: {
       accept: "application/json"
     }
@@ -99,6 +108,9 @@ function toQueryString(options: AppQueryOptions = {}): string {
   if (options.pageSize) {
     params.set("pageSize", String(options.pageSize));
   }
+  if (options.includeAppStore !== undefined) {
+    params.set("includeAppStore", String(options.includeAppStore));
+  }
 
   return params.toString();
 }
@@ -106,6 +118,10 @@ function toQueryString(options: AppQueryOptions = {}): string {
 export async function fetchApps(options: AppQueryOptions = {}): Promise<AppListResponse> {
   const query = toQueryString(options);
   return request(`/api/apps${query ? `?${query}` : ""}`, AppListResponseSchema);
+}
+
+export async function fetchApp(appId: string): Promise<AppResponse> {
+  return request(`/api/apps/${encodeURIComponent(appId)}`, AppResponseSchema);
 }
 
 export async function searchApps(query: string, options: AppQueryOptions = {}): Promise<SearchResponse> {

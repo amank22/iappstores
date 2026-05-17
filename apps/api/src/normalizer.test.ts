@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterAppsByCategory,
   filterAppsByIosVersion,
+  groupAppsByBundleId,
   normalizeAltStoreRepo,
   paginateApps,
   searchApps
@@ -29,6 +30,7 @@ describe("normalizeAltStoreRepo", () => {
             subtitle: "Useful app",
             localizedDescription: "Long app description",
             iconURL: "https://example.com/icon.png",
+            appStoreURL: "https://apps.apple.com/us/app/example-app/id123456789",
             screenshots: ["https://example.com/screen.png"],
             versions: [
               {
@@ -52,9 +54,17 @@ describe("normalizeAltStoreRepo", () => {
       name: "Example App",
       bundleIdentifier: "com.example.app",
       category: "tools",
+      appStoreUrl: "https://apps.apple.com/us/app/example-app/id123456789",
       latestVersion: "1.0.0",
       downloadURL: "https://example.com/app.ipa",
-      minOSVersion: "15.0"
+      minOSVersion: "15.0",
+      downloadOptions: [
+        expect.objectContaining({
+          sourceId: "fastsign-altstore",
+          sourceName: "FastSign Lite",
+          downloadURL: "https://example.com/app.ipa"
+        })
+      ]
     });
   });
 
@@ -154,6 +164,51 @@ describe("normalizeAltStoreRepo", () => {
         pageSize: 24
       }).map((app) => app.name)
     ).toEqual(["Newer App"]);
+  });
+
+  it("groups matching bundle ids and keeps source download options", () => {
+    const secondSource: SourceDefinition = {
+      ...source,
+      id: "mirror",
+      name: "Mirror Source",
+      url: "https://mirror.example.com/repo.json"
+    };
+    const first = normalizeAltStoreRepo(
+      {
+        apps: [
+          {
+            name: "Shared App",
+            bundleIdentifier: "com.example.shared",
+            versions: [{ version: "1.0.0", date: "2024-01-01", downloadURL: "https://example.com/one.ipa" }]
+          }
+        ]
+      },
+      source
+    );
+    const second = normalizeAltStoreRepo(
+      {
+        apps: [
+          {
+            name: "Shared App",
+            bundleIdentifier: "com.example.shared",
+            versions: [{ version: "2.0.0", date: "2024-02-01", downloadURL: "https://example.com/two.ipa" }]
+          }
+        ]
+      },
+      secondSource
+    );
+
+    const grouped = groupAppsByBundleId([...first, ...second]);
+
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]).toMatchObject({
+      id: "bundle:com.example.shared",
+      sourceId: "multiple",
+      sourceName: "2 sources",
+      latestVersion: "2.0.0",
+      downloadURL: "https://example.com/two.ipa"
+    });
+    expect(grouped[0]?.downloadOptions.map((option) => option.sourceName)).toEqual(["Mirror Source", "FastSign Lite"]);
   });
 });
 

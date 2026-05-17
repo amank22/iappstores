@@ -3,6 +3,7 @@ dist
 .next
 out
 coverage
+.data
 .env
 .env.*
 !.env.example

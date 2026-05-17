@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AppCategory,
   AppCategoryFacet,
@@ -43,6 +43,8 @@ const IOS_FILTER_LABELS: Record<IosVersionOperator, string> = {
   gte: "Requires at least iOS"
 };
 
+const DEFAULT_IOS_OPERATOR: IosVersionOperator = "lte";
+
 function AppGridSkeleton() {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -75,12 +77,14 @@ export default function Home() {
   const [selectedSourceId, setSelectedSourceId] = useState(ALL_SOURCES);
   const [selectedCategory, setSelectedCategory] = useState<AppCategory>("all");
   const [iosVersion, setIosVersion] = useState("");
-  const [iosVersionOperator, setIosVersionOperator] = useState<IosVersionOperator>("lte");
+  const [iosVersionOperator, setIosVersionOperator] = useState<IosVersionOperator>(DEFAULT_IOS_OPERATOR);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [isLoadingSources, setIsLoadingSources] = useState(true);
   const [isLoadingApps, setIsLoadingApps] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const isLoadingNextPageRef = useRef(false);
 
   const selectedSource = useMemo(
     () => sources.find((source) => source.id === selectedSourceId),
@@ -88,6 +92,25 @@ export default function Home() {
   );
   const trimmedIosVersion = iosVersion.trim();
   const activeIosVersion = /^\d+(?:\.\d+){0,2}$/.test(trimmedIosVersion) ? trimmedIosVersion : undefined;
+  const trimmedQuery = query.trim();
+  const requestKey = useMemo(
+    () =>
+      JSON.stringify({
+        query: trimmedQuery,
+        selectedSourceId,
+        selectedCategory,
+        activeIosVersion,
+        iosVersionOperator
+      }),
+    [activeIosVersion, iosVersionOperator, selectedCategory, selectedSourceId, trimmedQuery]
+  );
+  const currentRequestKey = useRef(requestKey);
+  const hasActiveFilters =
+    trimmedQuery.length > 0 ||
+    selectedSourceId !== ALL_SOURCES ||
+    selectedCategory !== "all" ||
+    trimmedIosVersion.length > 0 ||
+    iosVersionOperator !== DEFAULT_IOS_OPERATOR;
 
   useEffect(() => {
     let isCancelled = false;
@@ -119,16 +142,24 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setPage(1);
-  }, [iosVersion, iosVersionOperator, query, selectedCategory, selectedSourceId]);
+    if (requestKey !== currentRequestKey.current) {
+      isLoadingNextPageRef.current = false;
+      setApps([]);
+      setPagination(EMPTY_PAGINATION);
+      setPage(1);
+    }
+  }, [requestKey]);
 
   useEffect(() => {
+    if (requestKey !== currentRequestKey.current && page !== 1) {
+      return;
+    }
+
     let isCancelled = false;
     const timeout = setTimeout(() => {
       async function loadApps() {
         setIsLoadingApps(true);
         try {
-          const trimmedQuery = query.trim();
           const sourceId = selectedSourceId === ALL_SOURCES ? undefined : selectedSourceId;
           const options = {
             sourceId,
@@ -144,7 +175,16 @@ export default function Home() {
               : await fetchApps(options);
 
           if (!isCancelled) {
-            setApps(nextApps.apps);
+            currentRequestKey.current = requestKey;
+            setApps((currentApps) => {
+              if (page === 1) {
+                return nextApps.apps;
+              }
+
+              const seenIds = new Set(currentApps.map((app) => app.id));
+              const newApps = nextApps.apps.filter((app) => !seenIds.has(app.id));
+              return [...currentApps, ...newApps];
+            });
             setCategories(nextApps.categories);
             setPagination(nextApps.pagination);
             setError(null);
@@ -157,6 +197,7 @@ export default function Home() {
           }
         } finally {
           if (!isCancelled) {
+            isLoadingNextPageRef.current = false;
             setIsLoadingApps(false);
           }
         }
@@ -169,80 +210,133 @@ export default function Home() {
       isCancelled = true;
       clearTimeout(timeout);
     };
-  }, [activeIosVersion, iosVersionOperator, page, query, selectedCategory, selectedSourceId]);
+  }, [activeIosVersion, iosVersionOperator, page, requestKey, selectedCategory, selectedSourceId, trimmedQuery]);
+
+  const loadNextPage = useCallback(() => {
+    if (!pagination.hasNextPage || isLoadingApps || isLoadingNextPageRef.current) {
+      return;
+    }
+
+    isLoadingNextPageRef.current = true;
+    setPage((currentPage) => currentPage + 1);
+  }, [isLoadingApps, pagination.hasNextPage]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !pagination.hasNextPage) {
+      return;
+    }
+    const observedNode = node;
+
+    function isNodeNearViewport() {
+      const rect = observedNode.getBoundingClientRect();
+      return rect.top <= window.innerHeight + 600;
+    }
+
+    function maybeLoadNextPage() {
+      if (isNodeNearViewport()) {
+        loadNextPage();
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadNextPage();
+        }
+      },
+      {
+        rootMargin: "600px 0px"
+      }
+    );
+
+    observer.observe(observedNode);
+    window.addEventListener("scroll", maybeLoadNextPage, { passive: true });
+    window.addEventListener("resize", maybeLoadNextPage);
+
+    const frame = window.requestAnimationFrame(maybeLoadNextPage);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", maybeLoadNextPage);
+      window.removeEventListener("resize", maybeLoadNextPage);
+      observer.disconnect();
+    };
+  }, [loadNextPage, pagination.hasNextPage, apps.length]);
 
   const visibleCategories = useMemo(
     () => categories.filter((category) => category.id === "all" || category.appCount > 0),
     [categories]
   );
+  const isInitialLoading = isLoadingApps && apps.length === 0;
+  const isLoadingMore = isLoadingApps && apps.length > 0;
+
+  function resetFilters() {
+    isLoadingNextPageRef.current = false;
+    setQuery("");
+    setSelectedSourceId(ALL_SOURCES);
+    setSelectedCategory("all");
+    setIosVersion("");
+    setIosVersionOperator(DEFAULT_IOS_OPERATOR);
+    setApps([]);
+    setPagination(EMPTY_PAGINATION);
+    setPage(1);
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.24),_transparent_36rem)]">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:gap-8 sm:px-6 sm:py-8 lg:px-8">
-        <section className="rounded-3xl border border-border/80 bg-card/70 p-4 shadow-2xl backdrop-blur sm:p-6 md:p-10">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <Badge variant="secondary">AltStore and SideStore repositories</Badge>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">iappstores</h1>
-              <p className="max-w-2xl text-sm text-muted-foreground sm:text-lg">
-                Search iOS app store sources and jump straight to IPA downloads.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm sm:min-w-80">
-              <div className="rounded-2xl border border-border bg-background/50 p-3">
-                <div className="text-2xl font-semibold">{isLoadingSources ? "-" : sources.length}</div>
-                <div className="text-muted-foreground">Sources</div>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:gap-6 sm:px-6 sm:py-8 lg:px-8">
+        <section className="overflow-hidden rounded-3xl border border-border/80 bg-card/70 shadow-2xl backdrop-blur">
+          <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:p-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                {/* Brand asset lives in public/ so it also works for Docker/Coolify deployments. */}
+                <img src="/logo.svg" alt="" className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20" />
+                <Badge variant="secondary">AltStore and SideStore repositories</Badge>
               </div>
-              <div className="rounded-2xl border border-border bg-background/50 p-3">
-                <div className="text-2xl font-semibold">{pagination.totalItems}</div>
-                <div className="text-muted-foreground">{query.trim() ? "Matches" : "Apps"}</div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">iappstores</h1>
+                <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                  Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked,
+                  modded, and patched iOS apps with App Store context when available.
+                </p>
+              </div>
+              <Input
+                className="h-12 rounded-2xl text-base"
+                placeholder="Search apps, bundle IDs, developers..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-1">
+              <div className="rounded-2xl border border-border bg-background/50 p-4">
+                <div className="text-3xl font-semibold">{isLoadingSources ? "-" : sources.length}</div>
+                <div className="mt-1 text-muted-foreground">Sources indexed</div>
+              </div>
+              <div className="rounded-2xl border border-border bg-background/50 p-4">
+                <div className="text-3xl font-semibold">{pagination.totalItems}</div>
+                <div className="mt-1 text-muted-foreground">{trimmedQuery ? "Matches" : "Apps available"}</div>
               </div>
             </div>
           </div>
         </section>
 
-        <Card>
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle>Browse apps</CardTitle>
-            <CardDescription>Search, filter by source, or jump into lightweight discovery groups.</CardDescription>
+        <Card className="rounded-3xl">
+          <CardHeader className="flex gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+            <div>
+              <CardTitle>Refine results</CardTitle>
+              <CardDescription>Use filters when you need them. Reset anytime.</CardDescription>
+            </div>
+            <Button
+              variant={hasActiveFilters ? "default" : "outline"}
+              size="sm"
+              disabled={!hasActiveFilters}
+              onClick={resetFilters}
+            >
+              Reset filters
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
-              <Input
-                placeholder="Try Delta, emulator, signing..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <Select value={selectedSourceId} onChange={(event) => setSelectedSourceId(event.target.value)}>
-                <option value={ALL_SOURCES}>All sources</option>
-                {sources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto]">
-              <Select
-                value={iosVersionOperator}
-                onChange={(event) => setIosVersionOperator(event.target.value as IosVersionOperator)}
-              >
-                <option value="lte">Compatible with iOS</option>
-                <option value="gte">Requires at least iOS</option>
-              </Select>
-              <Input
-                inputMode="decimal"
-                pattern="[0-9]+(\\.[0-9]+){0,2}"
-                placeholder="Version, e.g. 16.0"
-                value={iosVersion}
-                onChange={(event) => setIosVersion(event.target.value)}
-              />
-              {trimmedIosVersion ? (
-                <Button variant="outline" size="sm" className="h-11" onClick={() => setIosVersion("")}>
-                  Clear
-                </Button>
-              ) : null}
-            </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {visibleCategories.map((category) => (
                 <Button
@@ -256,22 +350,45 @@ export default function Home() {
                 </Button>
               ))}
             </div>
-            {selectedSource ? (
-              <p className="text-sm text-muted-foreground">
-                Browsing {selectedSource.name}. {selectedSource.subtitle}
-              </p>
-            ) : sources.length > 1 ? (
-              <div className="hidden flex-wrap gap-2 lg:flex">
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_11rem]">
+              <Select value={selectedSourceId} onChange={(event) => setSelectedSourceId(event.target.value)}>
+                <option value={ALL_SOURCES}>All sources</option>
                 {sources.map((source) => (
-                  <Button
-                    key={source.id}
-                    variant={selectedSourceId === source.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedSourceId(source.id)}
-                  >
+                  <option key={source.id} value={source.id}>
                     {source.name}
-                  </Button>
+                  </option>
                 ))}
+              </Select>
+              <Select
+                value={iosVersionOperator}
+                onChange={(event) => setIosVersionOperator(event.target.value as IosVersionOperator)}
+              >
+                <option value="lte">Compatible with iOS</option>
+                <option value="gte">Requires at least iOS</option>
+              </Select>
+              <Input
+                inputMode="decimal"
+                pattern="[0-9]+(\\.[0-9]+){0,2}"
+                placeholder="iOS, e.g. 16.0"
+                value={iosVersion}
+                onChange={(event) => setIosVersion(event.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters ? (
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-background/40 p-3">
+                <span className="self-center text-xs font-medium text-muted-foreground">Active:</span>
+                {trimmedQuery ? <Badge variant="outline">Search: {trimmedQuery}</Badge> : null}
+                {selectedCategory !== "all" ? <Badge variant="outline">{CATEGORY_LABELS[selectedCategory]}</Badge> : null}
+                {selectedSource ? <Badge variant="outline">{selectedSource.name}</Badge> : null}
+                {trimmedIosVersion ? (
+                  <Badge variant="outline">
+                    {activeIosVersion
+                      ? `${IOS_FILTER_LABELS[iosVersionOperator]} ${activeIosVersion}`
+                      : "Enter iOS version like 16.0"}
+                  </Badge>
+                ) : null}
               </div>
             ) : null}
           </CardContent>
@@ -291,30 +408,21 @@ export default function Home() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Apps</h2>
               <p className="text-sm text-muted-foreground">
-                {isLoadingApps
+                {isInitialLoading
                   ? "Loading apps..."
-                  : `${pagination.totalItems} app${pagination.totalItems === 1 ? "" : "s"} found`}
+                  : `${apps.length} of ${pagination.totalItems} app${pagination.totalItems === 1 ? "" : "s"} shown`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {query.trim().length > 0 ? <Badge variant="outline">Search: {query.trim()}</Badge> : null}
-              {selectedCategory !== "all" ? <Badge variant="outline">{CATEGORY_LABELS[selectedCategory]}</Badge> : null}
-              {trimmedIosVersion ? (
-                <Badge variant="outline">
-                  {activeIosVersion
-                    ? `${IOS_FILTER_LABELS[iosVersionOperator]} ${activeIosVersion}`
-                    : "Enter iOS version like 16.0"}
-                </Badge>
-              ) : null}
-              {pagination.totalPages > 0 ? (
+              {pagination.totalItems > 0 ? (
                 <Badge variant="secondary">
-                  Page {pagination.page} of {pagination.totalPages}
+                  {pagination.hasNextPage ? "Scroll for more" : "All results loaded"}
                 </Badge>
               ) : null}
             </div>
           </div>
 
-          {isLoadingApps ? (
+          {isInitialLoading ? (
             <AppGridSkeleton />
           ) : apps.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -331,27 +439,24 @@ export default function Home() {
             </Card>
           )}
 
-          {pagination.totalPages > 1 ? (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/70 p-3">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!pagination.hasPreviousPage || isLoadingApps}
-                onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {pagination.page} / {pagination.totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!pagination.hasNextPage || isLoadingApps}
-                onClick={() => setPage((currentPage) => currentPage + 1)}
-              >
-                Next
-              </Button>
+          {apps.length > 0 ? (
+            <div ref={loadMoreRef} className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card/70 p-4">
+              {pagination.hasNextPage ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {isLoadingMore ? "Loading more apps..." : `${pagination.totalItems - apps.length} more app${pagination.totalItems - apps.length === 1 ? "" : "s"} available`}
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={isLoadingApps}
+                    onClick={loadNextPage}
+                  >
+                    {isLoadingMore ? "Loading..." : "Load more"}
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">You have reached the end of the results.</p>
+              )}
             </div>
           ) : null}
         </section>

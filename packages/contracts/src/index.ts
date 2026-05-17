@@ -25,6 +25,27 @@ const QueryPositiveIntegerSchema = (defaultValue: number, maxValue: number) =>
     return Number.isFinite(parsed) ? parsed : raw;
   }, z.number().int().min(1).max(maxValue));
 
+const QueryBooleanSchema = (defaultValue: boolean) =>
+  z.preprocess((value) => {
+    const raw = Array.isArray(value) ? value[0] : value;
+
+    if (raw === undefined || raw === null || raw === "") {
+      return defaultValue;
+    }
+
+    if (typeof raw === "string") {
+      const normalized = raw.trim().toLowerCase();
+      if (["true", "1", "yes"].includes(normalized)) {
+        return true;
+      }
+      if (["false", "0", "no"].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return raw;
+  }, z.boolean());
+
 export const AppCategorySchema = z.enum(["all", "recent", "games", "tools", "media", "education"]);
 export const DerivedAppCategorySchema = z.enum(["games", "tools", "media", "education"]);
 export const IosVersionOperatorSchema = z.enum(["lte", "gte"]);
@@ -43,13 +64,18 @@ export const SourceIdParamSchema = z.object({
   sourceId: z.string().trim().min(1)
 });
 
+export const AppIdParamSchema = z.object({
+  appId: z.string().trim().min(1)
+});
+
 export const BrowseAppsQuerySchema = z.object({
   sourceId: QueryStringSchema.optional(),
   page: QueryPositiveIntegerSchema(1, 10_000),
   pageSize: QueryPositiveIntegerSchema(24, 60),
   category: AppCategorySchema.default("all"),
   iosVersion: IosVersionQuerySchema,
-  iosVersionOperator: IosVersionOperatorSchema.default("lte")
+  iosVersionOperator: IosVersionOperatorSchema.default("lte"),
+  includeAppStore: QueryBooleanSchema(true)
 });
 
 export const SearchAppsQuerySchema = z.object({
@@ -59,7 +85,8 @@ export const SearchAppsQuerySchema = z.object({
   pageSize: QueryPositiveIntegerSchema(24, 60),
   category: AppCategorySchema.default("all"),
   iosVersion: IosVersionQuerySchema,
-  iosVersionOperator: IosVersionOperatorSchema.default("lte")
+  iosVersionOperator: IosVersionOperatorSchema.default("lte"),
+  includeAppStore: QueryBooleanSchema(true)
 });
 
 export const SourceDtoSchema = z.object({
@@ -69,6 +96,43 @@ export const SourceDtoSchema = z.object({
   url: z.string().url(),
   website: z.string().url().nullable(),
   appCount: z.number().int().nonnegative().optional()
+});
+
+export const AppDownloadOptionSchema = z.object({
+  sourceId: z.string(),
+  sourceName: z.string(),
+  latestVersion: z.string().nullable(),
+  versionDate: z.string().nullable(),
+  downloadURL: z.string().url().nullable(),
+  size: z.number().int().nonnegative().nullable(),
+  minOSVersion: z.string().nullable()
+});
+
+export const AppStoreMetadataSchema = z.object({
+  country: z.string().length(2),
+  bundleId: z.string(),
+  trackId: z.number().int().positive(),
+  trackViewUrl: z.string().url(),
+  name: z.string(),
+  developerName: z.string().nullable(),
+  description: z.string().nullable(),
+  artworkUrl60: z.string().url().nullable(),
+  artworkUrl100: z.string().url().nullable(),
+  artworkUrl512: z.string().url().nullable(),
+  screenshotUrls: z.array(z.string().url()),
+  ipadScreenshotUrls: z.array(z.string().url()),
+  genres: z.array(z.string()),
+  primaryGenreName: z.string().nullable(),
+  averageUserRating: z.number().nullable(),
+  userRatingCount: z.number().int().nonnegative().nullable(),
+  formattedPrice: z.string().nullable(),
+  price: z.number().nullable(),
+  version: z.string().nullable(),
+  minimumOsVersion: z.string().nullable(),
+  releaseNotes: z.string().nullable(),
+  currentVersionReleaseDate: z.string().nullable(),
+  contentAdvisoryRating: z.string().nullable(),
+  fetchedAt: z.number().int().nonnegative()
 });
 
 export const AppDtoSchema = z.object({
@@ -82,13 +146,16 @@ export const AppDtoSchema = z.object({
   description: z.string().nullable(),
   category: DerivedAppCategorySchema,
   iconUrl: z.string().url().nullable(),
+  appStoreUrl: z.string().url().nullable(),
   screenshots: z.array(z.string().url()),
   latestVersion: z.string().nullable(),
   versionDate: z.string().nullable(),
   versionDescription: z.string().nullable(),
   downloadURL: z.string().url().nullable(),
   size: z.number().int().nonnegative().nullable(),
-  minOSVersion: z.string().nullable()
+  minOSVersion: z.string().nullable(),
+  downloadOptions: z.array(AppDownloadOptionSchema),
+  appStore: AppStoreMetadataSchema.nullable().optional()
 });
 
 export const PaginationSchema = z.object({
@@ -123,6 +190,10 @@ export const AppListResponseSchema = z.object({
   categories: z.array(AppCategoryFacetSchema)
 });
 
+export const AppResponseSchema = z.object({
+  app: AppDtoSchema
+});
+
 export const SearchResponseSchema = z.object({
   query: SearchAppsQuerySchema,
   apps: z.array(AppDtoSchema),
@@ -139,17 +210,21 @@ export const ApiErrorResponseSchema = z.object({
 });
 
 export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
+export type AppIdParam = z.infer<typeof AppIdParamSchema>;
 export type AppCategory = z.infer<typeof AppCategorySchema>;
 export type DerivedAppCategory = z.infer<typeof DerivedAppCategorySchema>;
 export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
 export type BrowseAppsQuery = z.infer<typeof BrowseAppsQuerySchema>;
 export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
+export type AppDownloadOption = z.infer<typeof AppDownloadOptionSchema>;
+export type AppStoreMetadata = z.infer<typeof AppStoreMetadataSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;
 export type SourcesResponse = z.infer<typeof SourcesResponseSchema>;
 export type AppsResponse = z.infer<typeof AppsResponseSchema>;
 export type AppListResponse = z.infer<typeof AppListResponseSchema>;
+export type AppResponse = z.infer<typeof AppResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;

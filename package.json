@@ -18,7 +18,8 @@
     "rebuild": "npm run clean -w @iappstores/contracts && npm run build -w @iappstores/contracts && npm run clean -w @iappstores/api && npm run build -w @iappstores/api && npm run clean -w @iappstores/web && npm run build -w @iappstores/web",
     "lint": "npm run lint -w @iappstores/api && npm run lint -w @iappstores/web",
     "typecheck": "npm run build -w @iappstores/contracts && npm run typecheck -w @iappstores/api && npm run typecheck -w @iappstores/web",
-    "test": "npm run test -w @iappstores/api"
+    "test": "npm run test -w @iappstores/api",
+    "validate:sources": "npm run build -w @iappstores/contracts && npm run validate:sources -w @iappstores/api -- ../../repolist.txt"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
