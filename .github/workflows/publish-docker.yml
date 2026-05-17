@@ -16,6 +16,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  SITE_URL: https://iappstores.com
 
 jobs:
   publish:
@@ -55,3 +56,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            SITE_URL=${{ env.SITE_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ env.SITE_URL }}

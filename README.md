@@ -47,6 +47,7 @@ Optional cache settings:
 ```txt
 DATA_DIR=/data
 SITE_URL=https://your-domain.example
+NEXT_PUBLIC_SITE_URL=https://your-domain.example
 REPO_CACHE_TTL_HOURS=24
 REPO_REFRESH_CONCURRENCY=6
 APP_STORE_COUNTRY=us
@@ -58,7 +59,7 @@ APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
 
 App Store enrichment uses Apple’s public lookup API by bundle ID. It serves cached metadata immediately and refreshes missing or expired entries slowly in the background to avoid rate limits. Repository text remains visible as IPA source notes because it often explains patched or unlocked builds.
 
-`SITE_URL` is used for canonical URLs, Open Graph URLs, `robots.txt`, and `sitemap.xml`. Set it to your public Coolify domain in production.
+`SITE_URL` and `NEXT_PUBLIC_SITE_URL` are used for canonical URLs, Open Graph URLs, `robots.txt`, and `sitemap.xml`. Set both to your public Coolify domain in production. The GitHub Docker publishing workflow passes `https://iappstores.com` as a build argument so GHCR images are built with the production metadata base.
 
 For Coolify health checks, use:
 
