@@ -13,7 +13,7 @@ import { getSourceApps } from "./repoClient.js";
 import { findSource, sourceToDto, SOURCES } from "./sources.js";
 
 const app = express();
-const port = Number(process.env.PORT ?? 4000);
+const port = Number(process.env.API_PORT ?? 4000);
 const frontendOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
 
 app.use(
