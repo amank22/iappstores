@@ -48,7 +48,14 @@ Optional cache settings:
 DATA_DIR=/data
 REPO_CACHE_TTL_HOURS=24
 REPO_REFRESH_CONCURRENCY=6
+APP_STORE_COUNTRY=us
+APP_STORE_FALLBACK_COUNTRIES=in,gb,ca
+APP_STORE_LOOKUP_DELAY_MS=3500
+APP_STORE_CACHE_TTL_DAYS=30
+APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
 ```
+
+App Store enrichment uses Apple’s public lookup API by bundle ID. It serves cached metadata immediately and refreshes missing or expired entries slowly in the background to avoid rate limits. Repository text remains visible as IPA source notes because it often explains patched or unlocked builds.
 
 For Coolify health checks, use:
 

@@ -81,6 +81,33 @@ export const AppDownloadOptionSchema = z.object({
   minOSVersion: z.string().nullable()
 });
 
+export const AppStoreMetadataSchema = z.object({
+  country: z.string().length(2),
+  bundleId: z.string(),
+  trackId: z.number().int().positive(),
+  trackViewUrl: z.string().url(),
+  name: z.string(),
+  developerName: z.string().nullable(),
+  description: z.string().nullable(),
+  artworkUrl60: z.string().url().nullable(),
+  artworkUrl100: z.string().url().nullable(),
+  artworkUrl512: z.string().url().nullable(),
+  screenshotUrls: z.array(z.string().url()),
+  ipadScreenshotUrls: z.array(z.string().url()),
+  genres: z.array(z.string()),
+  primaryGenreName: z.string().nullable(),
+  averageUserRating: z.number().nullable(),
+  userRatingCount: z.number().int().nonnegative().nullable(),
+  formattedPrice: z.string().nullable(),
+  price: z.number().nullable(),
+  version: z.string().nullable(),
+  minimumOsVersion: z.string().nullable(),
+  releaseNotes: z.string().nullable(),
+  currentVersionReleaseDate: z.string().nullable(),
+  contentAdvisoryRating: z.string().nullable(),
+  fetchedAt: z.number().int().nonnegative()
+});
+
 export const AppDtoSchema = z.object({
   id: z.string(),
   sourceId: z.string(),
@@ -100,7 +127,8 @@ export const AppDtoSchema = z.object({
   downloadURL: z.string().url().nullable(),
   size: z.number().int().nonnegative().nullable(),
   minOSVersion: z.string().nullable(),
-  downloadOptions: z.array(AppDownloadOptionSchema)
+  downloadOptions: z.array(AppDownloadOptionSchema),
+  appStore: AppStoreMetadataSchema.nullable().optional()
 });
 
 export const PaginationSchema = z.object({
@@ -158,6 +186,7 @@ export type BrowseAppsQuery = z.infer<typeof BrowseAppsQuerySchema>;
 export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
 export type AppDownloadOption = z.infer<typeof AppDownloadOptionSchema>;
+export type AppStoreMetadata = z.infer<typeof AppStoreMetadataSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;

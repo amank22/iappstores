@@ -9,6 +9,8 @@ import {
   type SearchResponse,
   type SourcesResponse
 } from "@iappstores/contracts";
+import { enrichAppsWithCachedAppStoreMetadata } from "./appStoreClient.js";
+import { closeAppStoreCacheStore, initAppStoreCacheStore } from "./appStoreCacheStore.js";
 import { sendError } from "./http.js";
 import {
   filterAppsByCategory,
@@ -28,8 +30,12 @@ const port = Number(process.env.API_PORT ?? 4000);
 const frontendOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
 
 initRepoCacheStore();
+initAppStoreCacheStore();
 startRepoRefreshWorker(SOURCES);
-process.on("exit", closeRepoCacheStore);
+process.on("exit", () => {
+  closeRepoCacheStore();
+  closeAppStoreCacheStore();
+});
 
 async function getAppsForSources(sources: typeof SOURCES) {
   const results = await Promise.allSettled(sources.map((source) => getSourceApps(source)));
@@ -80,7 +86,7 @@ app.get("/api/apps", async (req, res) => {
     const groupedApps = groupAppsByBundleId(filteredApps);
     const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: AppListResponse = {
-      apps: pagedApps.apps,
+      apps: enrichAppsWithCachedAppStoreMetadata(pagedApps.apps),
       pagination: pagedApps.pagination,
       categories: getCategoryFacets(allApps)
     };
@@ -119,7 +125,7 @@ app.get("/api/sources/:sourceId/apps", async (req, res) => {
     const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: AppsResponse = {
       source: sourceToDto(source, allApps.length),
-      apps: pagedApps.apps,
+      apps: enrichAppsWithCachedAppStoreMetadata(pagedApps.apps),
       pagination: pagedApps.pagination,
       categories: getCategoryFacets(allApps)
     };
@@ -157,7 +163,7 @@ app.get("/api/search", async (req, res) => {
     const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: SearchResponse = {
       query: parsedQuery.data,
-      apps: pagedApps.apps,
+      apps: enrichAppsWithCachedAppStoreMetadata(pagedApps.apps),
       pagination: pagedApps.pagination,
       categories: getCategoryFacets(matchedApps)
     };
