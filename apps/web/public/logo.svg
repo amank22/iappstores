@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">iappstores logo</title>
+  <desc id="desc">A rounded blue app icon with layered app cards and a download arrow.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" x2="110" y1="14" y2="114" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset=".52" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="card" x1="38" x2="94" y1="28" y2="98" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity=".96"/>
+      <stop offset="1" stop-color="#DBEAFE" stop-opacity=".82"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#bg)"/>
+  <path fill="#93C5FD" fill-opacity=".28" d="M22 32c0-6.6 5.4-12 12-12h45c6.6 0 12 5.4 12 12v5H34c-6.6 0-12 5.4-12 12V32Z"/>
+  <rect x="33" y="29" width="62" height="72" rx="16" fill="url(#card)" opacity=".92"/>
+  <rect x="45" y="43" width="38" height="7" rx="3.5" fill="#1D4ED8" opacity=".78"/>
+  <rect x="45" y="57" width="28" height="7" rx="3.5" fill="#1D4ED8" opacity=".42"/>
+  <path fill="#1D4ED8" d="M68 66a4 4 0 0 0-8 0v16.3l-6.2-6.1a4 4 0 0 0-5.6 5.6l13 13a4 4 0 0 0 5.6 0l13-13a4 4 0 1 0-5.6-5.6L68 82.3V66Z"/>
+  <path fill="#EFF6FF" fill-opacity=".52" d="M106 31c5.5 9.4 8 20.6 6.4 32.1C109 88.4 88.5 108.2 63 110.6a49.7 49.7 0 0 1-28.8-5.8A54 54 0 0 0 106 31Z"/>
+</svg>

@@ -1,9 +1,12 @@
 import cors from "cors";
 import express from "express";
 import {
+  AppIdParamSchema,
   BrowseAppsQuerySchema,
   SearchAppsQuerySchema,
   SourceIdParamSchema,
+  type AppDto,
+  type AppResponse,
   type AppListResponse,
   type AppsResponse,
   type SearchResponse,
@@ -41,6 +44,15 @@ async function getAppsForSources(sources: typeof SOURCES) {
   const results = await Promise.allSettled(sources.map((source) => getSourceApps(source)));
 
   return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+}
+
+async function getGroupedAppsForSources(sources: typeof SOURCES) {
+  const allApps = await getAppsForSources(sources);
+  return groupAppsByBundleId(allApps);
+}
+
+function attachAppStoreMetadata(apps: AppDto[], includeAppStore: boolean): AppDto[] {
+  return includeAppStore ? enrichAppsWithCachedAppStoreMetadata(apps) : apps;
 }
 
 app.use(
@@ -86,13 +98,47 @@ app.get("/api/apps", async (req, res) => {
     const groupedApps = groupAppsByBundleId(filteredApps);
     const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: AppListResponse = {
-      apps: enrichAppsWithCachedAppStoreMetadata(pagedApps.apps),
+      apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
       pagination: pagedApps.pagination,
       categories: getCategoryFacets(allApps)
     };
     res.json(body);
   } catch (error) {
     sendError(res, 502, "apps_fetch_failed", "Could not fetch or parse source repositories.", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+app.get("/api/apps/:appId", async (req, res) => {
+  const params = AppIdParamSchema.safeParse(req.params);
+  if (!params.success) {
+    sendError(res, 400, "invalid_app_id", "App id is required.", params.error.flatten());
+    return;
+  }
+
+  try {
+    const groupedApps = await getGroupedAppsForSources(SOURCES);
+    const decodedAppId = params.data.appId;
+    const matchedApp = groupedApps.find(
+      (candidate) =>
+        candidate.id === decodedAppId ||
+        candidate.bundleIdentifier?.toLowerCase() === decodedAppId.toLowerCase() ||
+        candidate.id === `bundle:${decodedAppId.toLowerCase()}`
+    );
+
+    if (!matchedApp) {
+      sendError(res, 404, "app_not_found", `Unknown app "${decodedAppId}".`);
+      return;
+    }
+
+    const [enrichedApp] = enrichAppsWithCachedAppStoreMetadata([matchedApp]);
+    const body: AppResponse = {
+      app: enrichedApp ?? matchedApp
+    };
+    res.json(body);
+  } catch (error) {
+    sendError(res, 502, "app_fetch_failed", "Could not fetch or parse source repositories.", {
       message: error instanceof Error ? error.message : String(error)
     });
   }
@@ -125,7 +171,7 @@ app.get("/api/sources/:sourceId/apps", async (req, res) => {
     const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: AppsResponse = {
       source: sourceToDto(source, allApps.length),
-      apps: enrichAppsWithCachedAppStoreMetadata(pagedApps.apps),
+      apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
       pagination: pagedApps.pagination,
       categories: getCategoryFacets(allApps)
     };
@@ -163,7 +209,7 @@ app.get("/api/search", async (req, res) => {
     const pagedApps = paginateApps(groupedApps, parsedQuery.data);
     const body: SearchResponse = {
       query: parsedQuery.data,
-      apps: enrichAppsWithCachedAppStoreMetadata(pagedApps.apps),
+      apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
       pagination: pagedApps.pagination,
       categories: getCategoryFacets(matchedApps)
     };

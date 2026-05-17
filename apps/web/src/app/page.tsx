@@ -289,11 +289,16 @@ export default function Home() {
         <section className="overflow-hidden rounded-3xl border border-border/80 bg-card/70 shadow-2xl backdrop-blur">
           <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:p-8">
             <div className="space-y-4">
-              <Badge variant="secondary">AltStore and SideStore repositories</Badge>
+              <div className="flex items-center gap-3">
+                {/* Brand asset lives in public/ so it also works for Docker/Coolify deployments. */}
+                <img src="/logo.svg" alt="" className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20" />
+                <Badge variant="secondary">AltStore and SideStore repositories</Badge>
+              </div>
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">iappstores</h1>
                 <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  Find iOS apps across trusted sources, compare downloads, and open App Store info fast.
+                  Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked,
+                  modded, and patched iOS apps with App Store context when available.
                 </p>
               </div>
               <Input

@@ -129,6 +129,7 @@ export function AppCard({ app }: { app: AppDto }) {
   const hasRepositoryNotes = repositoryNotes.length > 0;
   const hasAppStoreDetails = Boolean(primaryGenreName || rating || appStore?.version || appStore?.minimumOsVersion);
   const hasDetails = Boolean(primaryDescription || hasRepositoryNotes || app.bundleIdentifier || appStore);
+  const appPagePath = `/apps/${encodeURIComponent(app.id)}`;
   const [isDownloadPickerOpen, setIsDownloadPickerOpen] = useState(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
 
@@ -195,9 +196,14 @@ export function AppCard({ app }: { app: AppDto }) {
               {app.minOSVersion ? <Badge variant="outline">iOS {app.minOSVersion}+</Badge> : null}
             </div>
             {hasDetails ? (
-              <Button className="w-full" variant="outline" size="sm" onClick={() => setIsDescriptionOpen(true)}>
-                View details
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button className="w-full" variant="outline" size="sm" onClick={() => setIsDescriptionOpen(true)}>
+                  View details
+                </Button>
+                <a href={appPagePath} className={buttonClasses({ className: "w-full", variant: "outline", size: "sm" })}>
+                  Share page
+                </a>
+              </div>
             ) : null}
           </div>
         </CardContent>

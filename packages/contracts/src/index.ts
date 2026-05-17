@@ -25,6 +25,27 @@ const QueryPositiveIntegerSchema = (defaultValue: number, maxValue: number) =>
     return Number.isFinite(parsed) ? parsed : raw;
   }, z.number().int().min(1).max(maxValue));
 
+const QueryBooleanSchema = (defaultValue: boolean) =>
+  z.preprocess((value) => {
+    const raw = Array.isArray(value) ? value[0] : value;
+
+    if (raw === undefined || raw === null || raw === "") {
+      return defaultValue;
+    }
+
+    if (typeof raw === "string") {
+      const normalized = raw.trim().toLowerCase();
+      if (["true", "1", "yes"].includes(normalized)) {
+        return true;
+      }
+      if (["false", "0", "no"].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return raw;
+  }, z.boolean());
+
 export const AppCategorySchema = z.enum(["all", "recent", "games", "tools", "media", "education"]);
 export const DerivedAppCategorySchema = z.enum(["games", "tools", "media", "education"]);
 export const IosVersionOperatorSchema = z.enum(["lte", "gte"]);
@@ -43,13 +64,18 @@ export const SourceIdParamSchema = z.object({
   sourceId: z.string().trim().min(1)
 });
 
+export const AppIdParamSchema = z.object({
+  appId: z.string().trim().min(1)
+});
+
 export const BrowseAppsQuerySchema = z.object({
   sourceId: QueryStringSchema.optional(),
   page: QueryPositiveIntegerSchema(1, 10_000),
   pageSize: QueryPositiveIntegerSchema(24, 60),
   category: AppCategorySchema.default("all"),
   iosVersion: IosVersionQuerySchema,
-  iosVersionOperator: IosVersionOperatorSchema.default("lte")
+  iosVersionOperator: IosVersionOperatorSchema.default("lte"),
+  includeAppStore: QueryBooleanSchema(true)
 });
 
 export const SearchAppsQuerySchema = z.object({
@@ -59,7 +85,8 @@ export const SearchAppsQuerySchema = z.object({
   pageSize: QueryPositiveIntegerSchema(24, 60),
   category: AppCategorySchema.default("all"),
   iosVersion: IosVersionQuerySchema,
-  iosVersionOperator: IosVersionOperatorSchema.default("lte")
+  iosVersionOperator: IosVersionOperatorSchema.default("lte"),
+  includeAppStore: QueryBooleanSchema(true)
 });
 
 export const SourceDtoSchema = z.object({
@@ -163,6 +190,10 @@ export const AppListResponseSchema = z.object({
   categories: z.array(AppCategoryFacetSchema)
 });
 
+export const AppResponseSchema = z.object({
+  app: AppDtoSchema
+});
+
 export const SearchResponseSchema = z.object({
   query: SearchAppsQuerySchema,
   apps: z.array(AppDtoSchema),
@@ -179,6 +210,7 @@ export const ApiErrorResponseSchema = z.object({
 });
 
 export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
+export type AppIdParam = z.infer<typeof AppIdParamSchema>;
 export type AppCategory = z.infer<typeof AppCategorySchema>;
 export type DerivedAppCategory = z.infer<typeof DerivedAppCategorySchema>;
 export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
@@ -193,5 +225,6 @@ export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;
 export type SourcesResponse = z.infer<typeof SourcesResponseSchema>;
 export type AppsResponse = z.infer<typeof AppsResponseSchema>;
 export type AppListResponse = z.infer<typeof AppListResponseSchema>;
+export type AppResponse = z.infer<typeof AppResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;

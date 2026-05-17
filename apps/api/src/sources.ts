@@ -11,9 +11,9 @@ export type SourceDefinition = {
 export const SOURCES: SourceDefinition[] = [
   {
     id: "fastsign-altstore",
-    name: "FastSign Lite",
-    subtitle: "AltStore and SideStore compatible FastSign repository",
-    url: "https://fastsign.dev/repo.lite.altstore.json",
+    name: "FastSign Full",
+    subtitle: "Full AltStore and SideStore compatible FastSign repository",
+    url: "https://fastsign.dev/repo.json",
     website: "https://fastsign.dev"
   },
   {

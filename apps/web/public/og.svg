@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">iappstores social preview</title>
+  <desc id="desc">A social preview for iappstores, an IPA repository browser.</desc>
+  <defs>
+    <radialGradient id="glow" cx=".22" cy=".15" r=".8">
+      <stop stop-color="#60A5FA" stop-opacity=".6"/>
+      <stop offset=".55" stop-color="#1D4ED8" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="logoBg" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#60A5FA"/>
+      <stop offset=".52" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#020617"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="74" y="74" width="1052" height="482" rx="48" fill="#0F172A" stroke="#1E3A8A" stroke-width="2"/>
+  <g transform="translate(122 142)">
+    <rect width="128" height="128" rx="30" fill="url(#logoBg)"/>
+    <rect x="33" y="29" width="62" height="72" rx="16" fill="#EFF6FF" opacity=".92"/>
+    <rect x="45" y="43" width="38" height="7" rx="3.5" fill="#1D4ED8" opacity=".78"/>
+    <path fill="#1D4ED8" d="M68 66a4 4 0 0 0-8 0v16.3l-6.2-6.1a4 4 0 0 0-5.6 5.6l13 13a4 4 0 0 0 5.6 0l13-13a4 4 0 1 0-5.6-5.6L68 82.3V66Z"/>
+  </g>
+  <text x="122" y="342" fill="#F8FAFC" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="82" font-weight="800">iappstores</text>
+  <text x="122" y="414" fill="#BFDBFE" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="34" font-weight="600">Direct IPA downloads from trusted repositories</text>
+  <text x="122" y="466" fill="#94A3B8" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="28">Browse tweaked, modded, and patched iOS apps with App Store context.</text>
+  <g fill="#1E293B" stroke="#334155" stroke-width="2">
+    <rect x="822" y="152" width="210" height="54" rx="27"/>
+    <rect x="768" y="236" width="286" height="54" rx="27"/>
+    <rect x="830" y="320" width="204" height="54" rx="27"/>
+  </g>
+  <g fill="#DBEAFE" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">
+    <text x="868" y="187">IPA files</text>
+    <text x="812" y="271">Tweaked apps</text>
+    <text x="872" y="355">AltStore</text>
+  </g>
+</svg>
