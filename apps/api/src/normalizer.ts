@@ -1,4 +1,12 @@
-import type { AppDto } from "@iappstores/contracts";
+import type {
+  AppCategory,
+  AppCategoryFacet,
+  AppDto,
+  BrowseAppsQuery,
+  DerivedAppCategory,
+  IosVersionOperator,
+  Pagination
+} from "@iappstores/contracts";
 import type { SourceDefinition } from "./sources.js";
 
 type AnyRecord = Record<string, unknown>;
@@ -78,6 +86,85 @@ function pickLatestVersion(app: AnyRecord): AnyRecord | null {
   return [...versions].sort((a, b) => versionTimestamp(b) - versionTimestamp(a))[0] ?? versions[0] ?? null;
 }
 
+function appSearchText(app: Pick<AppDto, "name" | "bundleIdentifier" | "developerName" | "subtitle" | "description" | "latestVersion">): string {
+  return [app.name, app.bundleIdentifier, app.developerName, app.subtitle, app.description, app.latestVersion]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function categorizeApp(app: AnyRecord): DerivedAppCategory {
+  const text = [
+    app.name,
+    app.bundleIdentifier,
+    app.developerName,
+    app.subtitle,
+    app.localizedDescription,
+    app.description
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/\b(game|games|gaming|emulator|arcade|minecraft|pokemon|delta|retroarch)\b/.test(text)) {
+    return "games";
+  }
+
+  if (/\b(music|video|photo|camera|movie|media|stream|youtube|spotify|piano)\b/.test(text)) {
+    return "media";
+  }
+
+  if (/\b(learn|learning|education|school|book|language|math|course|study)\b/.test(text)) {
+    return "education";
+  }
+
+  return "tools";
+}
+
+function appTimestamp(app: AppDto): number {
+  return app.versionDate ? Date.parse(app.versionDate) || 0 : 0;
+}
+
+function parseIosVersion(version: string | null): number[] | null {
+  if (!version) {
+    return null;
+  }
+
+  const match = version.match(/\d+(?:\.\d+){0,2}/);
+  if (!match) {
+    return null;
+  }
+
+  return match[0].split(".").map((part) => Number(part));
+}
+
+function compareIosVersions(left: number[], right: number[]): number {
+  const length = Math.max(left.length, right.length, 3);
+
+  for (let index = 0; index < length; index += 1) {
+    const leftPart = left[index] ?? 0;
+    const rightPart = right[index] ?? 0;
+
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+
+  return 0;
+}
+
+function matchesIosVersion(app: AppDto, iosVersion: string, operator: IosVersionOperator): boolean {
+  const appMinVersion = parseIosVersion(app.minOSVersion);
+  const requestedVersion = parseIosVersion(iosVersion);
+
+  if (!appMinVersion || !requestedVersion) {
+    return false;
+  }
+
+  const comparison = compareIosVersions(appMinVersion, requestedVersion);
+  return operator === "lte" ? comparison <= 0 : comparison >= 0;
+}
+
 export function normalizeAltStoreRepo(repoJson: unknown, source: SourceDefinition): AppDto[] {
   if (!isRecord(repoJson) || !Array.isArray(repoJson.apps)) {
     return [];
@@ -103,6 +190,7 @@ export function normalizeAltStoreRepo(repoJson: unknown, source: SourceDefinitio
         developerName: asString(app.developerName),
         subtitle: asString(app.subtitle),
         description: asString(app.localizedDescription ?? app.description),
+        category: categorizeApp(app),
         iconUrl: asUrl(app.iconURL ?? app.iconUrl),
         screenshots: asUrlArray(app.screenshots),
         latestVersion: latest ? asString(latest.version) : null,
@@ -126,19 +214,61 @@ export function searchApps(apps: AppDto[], query: string): AppDto[] {
     return apps;
   }
 
-  return apps.filter((app) => {
-    const haystack = [
-      app.name,
-      app.bundleIdentifier,
-      app.developerName,
-      app.subtitle,
-      app.description,
-      app.latestVersion
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+  return apps.filter((app) => terms.every((term) => appSearchText(app).includes(term)));
+}
 
-    return terms.every((term) => haystack.includes(term));
-  });
+export function filterAppsByCategory(apps: AppDto[], category: AppCategory): AppDto[] {
+  if (category === "all") {
+    return apps;
+  }
+
+  if (category === "recent") {
+    return [...apps].sort((a, b) => appTimestamp(b) - appTimestamp(a));
+  }
+
+  return apps.filter((app) => app.category === category);
+}
+
+export function filterAppsByIosVersion(apps: AppDto[], query: BrowseAppsQuery): AppDto[] {
+  const iosVersion = query.iosVersion;
+  if (!iosVersion) {
+    return apps;
+  }
+
+  return apps.filter((app) => matchesIosVersion(app, iosVersion, query.iosVersionOperator));
+}
+
+export function getCategoryFacets(apps: AppDto[]): AppCategoryFacet[] {
+  const categories: Array<{ id: AppCategory; name: string }> = [
+    { id: "all", name: "All apps" },
+    { id: "recent", name: "Recently updated" },
+    { id: "games", name: "Games" },
+    { id: "tools", name: "Tools" },
+    { id: "media", name: "Media" },
+    { id: "education", name: "Education" }
+  ];
+
+  return categories.map((category) => ({
+    ...category,
+    appCount: filterAppsByCategory(apps, category.id).length
+  }));
+}
+
+export function paginateApps(apps: AppDto[], query: BrowseAppsQuery): { apps: AppDto[]; pagination: Pagination } {
+  const totalItems = apps.length;
+  const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / query.pageSize);
+  const page = Math.min(query.page, Math.max(totalPages, 1));
+  const start = (page - 1) * query.pageSize;
+
+  return {
+    apps: apps.slice(start, start + query.pageSize),
+    pagination: {
+      page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1
+    }
+  };
 }

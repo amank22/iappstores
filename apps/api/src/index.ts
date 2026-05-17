@@ -1,14 +1,16 @@
 import cors from "cors";
 import express from "express";
 import {
+  BrowseAppsQuerySchema,
   SearchAppsQuerySchema,
   SourceIdParamSchema,
+  type AppListResponse,
   type AppsResponse,
   type SearchResponse,
   type SourcesResponse
 } from "@iappstores/contracts";
 import { sendError } from "./http.js";
-import { searchApps } from "./normalizer.js";
+import { filterAppsByCategory, filterAppsByIosVersion, getCategoryFacets, paginateApps, searchApps } from "./normalizer.js";
 import { getSourceApps } from "./repoClient.js";
 import { findSource, sourceToDto, SOURCES } from "./sources.js";
 
@@ -45,10 +47,51 @@ app.get("/api/sources", async (_req, res) => {
   res.json(body);
 });
 
+app.get("/api/apps", async (req, res) => {
+  const parsedQuery = BrowseAppsQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    sendError(res, 400, "invalid_apps_query", "Apps query parameters are invalid.", parsedQuery.error.flatten());
+    return;
+  }
+
+  const selectedSources = parsedQuery.data.sourceId
+    ? SOURCES.filter((source) => source.id === parsedQuery.data.sourceId)
+    : SOURCES;
+
+  if (parsedQuery.data.sourceId && selectedSources.length === 0) {
+    sendError(res, 404, "source_not_found", `Unknown source "${parsedQuery.data.sourceId}".`);
+    return;
+  }
+
+  try {
+    const sourceApps = await Promise.all(selectedSources.map((source) => getSourceApps(source)));
+    const allApps = sourceApps.flat();
+    const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
+    const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
+    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
+    const body: AppListResponse = {
+      apps: pagedApps.apps,
+      pagination: pagedApps.pagination,
+      categories: getCategoryFacets(allApps)
+    };
+    res.json(body);
+  } catch (error) {
+    sendError(res, 502, "apps_fetch_failed", "Could not fetch or parse source repositories.", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 app.get("/api/sources/:sourceId/apps", async (req, res) => {
   const params = SourceIdParamSchema.safeParse(req.params);
   if (!params.success) {
     sendError(res, 400, "invalid_source_id", "Source id is required.", params.error.flatten());
+    return;
+  }
+
+  const parsedQuery = BrowseAppsQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    sendError(res, 400, "invalid_apps_query", "Apps query parameters are invalid.", parsedQuery.error.flatten());
     return;
   }
 
@@ -59,10 +102,15 @@ app.get("/api/sources/:sourceId/apps", async (req, res) => {
   }
 
   try {
-    const apps = await getSourceApps(source);
+    const allApps = await getSourceApps(source);
+    const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
+    const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
+    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
     const body: AppsResponse = {
-      source: sourceToDto(source, apps.length),
-      apps
+      source: sourceToDto(source, allApps.length),
+      apps: pagedApps.apps,
+      pagination: pagedApps.pagination,
+      categories: getCategoryFacets(allApps)
     };
     res.json(body);
   } catch (error) {
@@ -91,10 +139,15 @@ app.get("/api/search", async (req, res) => {
 
   try {
     const sourceApps = await Promise.all(selectedSources.map((source) => getSourceApps(source)));
-    const apps = sourceApps.flatMap((appsForSource) => searchApps(appsForSource, parsedQuery.data.q));
+    const matchedApps = sourceApps.flatMap((appsForSource) => searchApps(appsForSource, parsedQuery.data.q));
+    const categorizedApps = filterAppsByCategory(matchedApps, parsedQuery.data.category);
+    const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
+    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
     const body: SearchResponse = {
       query: parsedQuery.data,
-      apps
+      apps: pagedApps.apps,
+      pagination: pagedApps.pagination,
+      categories: getCategoryFacets(matchedApps)
     };
     res.json(body);
   } catch (error) {
