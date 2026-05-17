@@ -40,9 +40,12 @@ ENV APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
 
 COPY --from=build /app ./
 
-RUN mkdir -p /data
+RUN apk add --no-cache curl && mkdir -p /data
 
 EXPOSE 3000
 VOLUME ["/data"]
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=6 \
+  CMD curl --fail --silent --show-error "http://127.0.0.1:${WEB_PORT:-3000}/health" >/dev/null || exit 1
 
 CMD ["npm", "run", "start"]

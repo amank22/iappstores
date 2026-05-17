@@ -31,6 +31,10 @@ function getImage(app: AppDto): string {
   return app.appStore?.artworkUrl512 ?? app.appStore?.artworkUrl100 ?? app.iconUrl ?? "/og.svg";
 }
 
+function getShareId(app: AppDto): string {
+  return app.bundleIdentifier ?? (app.id.startsWith("bundle:") ? app.id.slice("bundle:".length) : app.id);
+}
+
 async function getAppOrNotFound(appId: string): Promise<AppDto> {
   try {
     const response = await fetchApp(appId);
@@ -46,7 +50,7 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
   const name = getDisplayName(app);
   const description = getDescription(app);
   const image = getImage(app);
-  const path = `/apps/${encodeURIComponent(app.id)}`;
+  const path = `/apps/${encodeURIComponent(getShareId(app))}`;
 
   return {
     title: `${name} IPA Download`,
@@ -82,7 +86,7 @@ export default async function AppPage({ params }: AppPageProps) {
   const { appId } = await params;
   const app = await getAppOrNotFound(appId);
   const name = getDisplayName(app);
-  const shareUrl = getAbsoluteUrl(`/apps/${encodeURIComponent(app.id)}`);
+  const shareUrl = getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.24),_transparent_36rem)]">

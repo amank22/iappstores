@@ -44,6 +44,35 @@ const IOS_FILTER_LABELS: Record<IosVersionOperator, string> = {
 };
 
 const DEFAULT_IOS_OPERATOR: IosVersionOperator = "lte";
+const APP_CATEGORIES = new Set<AppCategory>(["all", "recent", "games", "tools", "media", "education"]);
+const IOS_OPERATORS = new Set<IosVersionOperator>(["lte", "gte"]);
+
+function readUrlState() {
+  if (typeof window === "undefined") {
+    return {
+      selectedSourceId: ALL_SOURCES,
+      selectedCategory: "all" as AppCategory,
+      iosVersion: "",
+      iosVersionOperator: DEFAULT_IOS_OPERATOR,
+      query: ""
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const category = params.get("category");
+  const iosOperator = params.get("iosOperator");
+
+  return {
+    selectedSourceId: params.get("source")?.trim() || ALL_SOURCES,
+    selectedCategory: category && APP_CATEGORIES.has(category as AppCategory) ? (category as AppCategory) : "all",
+    iosVersion: params.get("ios")?.trim() ?? "",
+    iosVersionOperator:
+      iosOperator && IOS_OPERATORS.has(iosOperator as IosVersionOperator)
+        ? (iosOperator as IosVersionOperator)
+        : DEFAULT_IOS_OPERATOR,
+    query: params.get("q")?.trim() ?? ""
+  };
+}
 
 function AppGridSkeleton() {
   return (
@@ -70,21 +99,23 @@ function AppGridSkeleton() {
 }
 
 export default function Home() {
+  const initialUrlState = useMemo(readUrlState, []);
   const [sources, setSources] = useState<SourceDto[]>([]);
   const [apps, setApps] = useState<AppDto[]>([]);
   const [categories, setCategories] = useState<AppCategoryFacet[]>([]);
   const [pagination, setPagination] = useState<Pagination>(EMPTY_PAGINATION);
-  const [selectedSourceId, setSelectedSourceId] = useState(ALL_SOURCES);
-  const [selectedCategory, setSelectedCategory] = useState<AppCategory>("all");
-  const [iosVersion, setIosVersion] = useState("");
-  const [iosVersionOperator, setIosVersionOperator] = useState<IosVersionOperator>(DEFAULT_IOS_OPERATOR);
+  const [selectedSourceId, setSelectedSourceId] = useState(initialUrlState.selectedSourceId);
+  const [selectedCategory, setSelectedCategory] = useState<AppCategory>(initialUrlState.selectedCategory);
+  const [iosVersion, setIosVersion] = useState(initialUrlState.iosVersion);
+  const [iosVersionOperator, setIosVersionOperator] = useState<IosVersionOperator>(initialUrlState.iosVersionOperator);
   const [page, setPage] = useState(1);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialUrlState.query);
   const [isLoadingSources, setIsLoadingSources] = useState(true);
   const [isLoadingApps, setIsLoadingApps] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const isLoadingNextPageRef = useRef(false);
+  const hasSyncedInitialUrl = useRef(false);
 
   const selectedSource = useMemo(
     () => sources.find((source) => source.id === selectedSourceId),
@@ -149,6 +180,60 @@ export default function Home() {
       setPage(1);
     }
   }, [requestKey]);
+
+  useEffect(() => {
+    function applyUrlState() {
+      const nextState = readUrlState();
+      isLoadingNextPageRef.current = false;
+      setQuery(nextState.query);
+      setSelectedSourceId(nextState.selectedSourceId);
+      setSelectedCategory(nextState.selectedCategory);
+      setIosVersion(nextState.iosVersion);
+      setIosVersionOperator(nextState.iosVersionOperator);
+      setApps([]);
+      setPagination(EMPTY_PAGINATION);
+      setPage(1);
+    }
+
+    window.addEventListener("popstate", applyUrlState);
+    return () => window.removeEventListener("popstate", applyUrlState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams();
+      if (trimmedQuery.length > 0) {
+        params.set("q", trimmedQuery);
+      }
+      if (selectedSourceId !== ALL_SOURCES) {
+        params.set("source", selectedSourceId);
+      }
+      if (selectedCategory !== "all") {
+        params.set("category", selectedCategory);
+      }
+      if (trimmedIosVersion.length > 0) {
+        params.set("ios", trimmedIosVersion);
+        if (iosVersionOperator !== DEFAULT_IOS_OPERATOR) {
+          params.set("iosOperator", iosVersionOperator);
+        }
+      }
+
+      const nextUrl = params.toString() ? `/?${params.toString()}` : "/";
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (nextUrl !== currentUrl) {
+        const stateMethod = hasSyncedInitialUrl.current ? "pushState" : "replaceState";
+        window.history[stateMethod](null, "", nextUrl);
+      }
+
+      hasSyncedInitialUrl.current = true;
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [iosVersionOperator, selectedCategory, selectedSourceId, trimmedIosVersion, trimmedQuery]);
 
   useEffect(() => {
     if (requestKey !== currentRequestKey.current && page !== 1) {
