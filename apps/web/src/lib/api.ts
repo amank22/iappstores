@@ -3,6 +3,7 @@ import {
   AppResponseSchema,
   AppsResponseSchema,
   SearchResponseSchema,
+  SitemapAppsResponseSchema,
   SourcesResponseSchema,
   type AppCategory,
   type AppListResponse,
@@ -10,6 +11,7 @@ import {
   type AppsResponse,
   type IosVersionOperator,
   type SearchResponse,
+  type SitemapAppsResponse,
   type SourceDto,
   type SourcesResponse
 } from "@iappstores/contracts";
@@ -118,6 +120,10 @@ function toQueryString(options: AppQueryOptions = {}): string {
 export async function fetchApps(options: AppQueryOptions = {}): Promise<AppListResponse> {
   const query = toQueryString(options);
   return request(`/api/apps${query ? `?${query}` : ""}`, AppListResponseSchema);
+}
+
+export async function fetchSitemapApps(): Promise<SitemapAppsResponse> {
+  return request("/api/sitemap/apps", SitemapAppsResponseSchema);
 }
 
 export async function fetchApp(appId: string): Promise<AppResponse> {

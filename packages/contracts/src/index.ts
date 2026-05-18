@@ -173,6 +173,12 @@ export const AppCategoryFacetSchema = z.object({
   appCount: z.number().int().nonnegative()
 });
 
+export const SitemapAppSchema = z.object({
+  id: z.string(),
+  bundleIdentifier: z.string().nullable(),
+  versionDate: z.string().nullable()
+});
+
 export const SourcesResponseSchema = z.object({
   sources: z.array(SourceDtoSchema)
 });
@@ -201,6 +207,10 @@ export const SearchResponseSchema = z.object({
   categories: z.array(AppCategoryFacetSchema)
 });
 
+export const SitemapAppsResponseSchema = z.object({
+  apps: z.array(SitemapAppSchema)
+});
+
 export const ApiErrorResponseSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -222,9 +232,11 @@ export type AppStoreMetadata = z.infer<typeof AppStoreMetadataSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;
+export type SitemapApp = z.infer<typeof SitemapAppSchema>;
 export type SourcesResponse = z.infer<typeof SourcesResponseSchema>;
 export type AppsResponse = z.infer<typeof AppsResponseSchema>;
 export type AppListResponse = z.infer<typeof AppListResponseSchema>;
 export type AppResponse = z.infer<typeof AppResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
+export type SitemapAppsResponse = z.infer<typeof SitemapAppsResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
