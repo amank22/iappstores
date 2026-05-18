@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { AppDto } from "@iappstores/contracts";
+import { ArrowUpRightIcon, StarIcon } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonClasses } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+
+const appBadgeClassName = "h-6 max-w-full px-2.5 text-xs";
+const appMetricBadgeClassName = "h-6 max-w-full gap-1 px-2.5 text-xs";
 
 function formatBytes(size: number | null): string | null {
   if (size === null) {
@@ -28,7 +32,7 @@ function formatRating(rating: number | null | undefined, ratingCount: number | n
     return null;
   }
 
-  const countLabel = ratingCount ? `${ratingCount.toLocaleString()} ratings` : "rating";
+  const countLabel = ratingCount ? `${ratingCount.toLocaleString()}` : "rating";
   return `${rating.toFixed(1)} · ${countLabel}`;
 }
 
@@ -40,6 +44,14 @@ function getAppStoreSearchUrl(app: AppDto): string {
     .replace(/\s+/g, " ")
     .trim();
   return `https://apps.apple.com/in/iphone/search?term=${encodeURIComponent(query)}`;
+}
+
+function shouldOfferTranslation(text: string | null | undefined): text is string {
+  return Boolean(text && /[^\u0000-\u007f]/.test(text));
+}
+
+function getTranslateUrl(text: string): string {
+  return `https://translate.google.com/?sl=auto&tl=en&text=${encodeURIComponent(text)}&op=translate`;
 }
 
 function hashText(value: string): number {
@@ -90,29 +102,144 @@ function AppIcon({
 
   if (iconUrl && !hasFailed) {
     return (
-      // External repository icons are user-provided, so a plain img keeps configuration simple.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={iconUrl}
-        alt={`${name} icon`}
-        className="h-14 w-14 rounded-2xl border border-border object-cover sm:h-16 sm:w-16"
-        onError={() => setHasFailed(true)}
-      />
+      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-muted/40 p-1.5 ring-1 ring-foreground/10 sm:h-16 sm:w-16">
+        {/* External repository icons are user-provided, so a plain img keeps configuration simple. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={iconUrl}
+          alt={`${name} icon`}
+          className="h-full w-full rounded-md object-cover"
+          onError={() => setHasFailed(true)}
+        />
+      </div>
     );
   }
 
   return (
     <div
-      className="grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-border text-center text-sm font-black tracking-tight text-white shadow-inner sm:h-16 sm:w-16"
-      style={fallbackStyle}
+      className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-muted/40 p-1.5 ring-1 ring-foreground/10 sm:h-16 sm:w-16"
       title={iconUrl ? "Icon failed to load" : "No icon provided"}
     >
-      <span className="drop-shadow">{getInitials(name)}</span>
+      <span
+        className="grid h-full w-full place-items-center rounded-md text-center text-sm font-black tracking-tight text-white"
+        style={fallbackStyle}
+      >
+        <span className="drop-shadow">{getInitials(name)}</span>
+      </span>
     </div>
   );
 }
 
-export function AppCard({ app }: { app: AppDto }) {
+export function AppDetailsContent({ app }: { app: AppDto }) {
+  const appStore = app.appStore ?? null;
+  const rating = formatRating(appStore?.averageUserRating, appStore?.userRatingCount);
+  const displayName = appStore?.name ?? app.name;
+  const primaryGenreName = appStore?.primaryGenreName ?? null;
+  const appStoreDescription = appStore?.description ?? null;
+  const repositoryNotes = [app.subtitle, app.description].filter(Boolean).join("\n\n");
+  const hasRepositoryNotes = repositoryNotes.length > 0;
+  const repositoryNotesTranslateUrl = shouldOfferTranslation(repositoryNotes) ? getTranslateUrl(repositoryNotes) : null;
+  const hasAppStoreDetails = Boolean(primaryGenreName || rating || appStore?.version || appStore?.minimumOsVersion);
+
+  return (
+    <div className="space-y-5 text-sm leading-6 text-muted-foreground">
+      {hasAppStoreDetails ? (
+        <section className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
+          <h4 className="mb-3 text-sm font-semibold text-foreground">App details</h4>
+          <dl className="grid gap-3 text-xs sm:grid-cols-2">
+            {primaryGenreName ? (
+              <div>
+                <dt className="font-semibold text-foreground">Category</dt>
+                <dd>{primaryGenreName}</dd>
+              </div>
+            ) : null}
+            {rating ? (
+              <div>
+                <dt className="font-semibold text-foreground">Rating</dt>
+                <dd className="inline-flex items-center gap-1">
+                  <StarIcon className="size-3" weight="fill" />
+                  {rating}
+                </dd>
+              </div>
+            ) : null}
+            {appStore?.version ? (
+              <div>
+                <dt className="font-semibold text-foreground">App Store version</dt>
+                <dd>{appStore.version}</dd>
+              </div>
+            ) : null}
+            {appStore?.minimumOsVersion ? (
+              <div>
+                <dt className="font-semibold text-foreground">App Store iOS</dt>
+                <dd>{appStore.minimumOsVersion}+</dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
+
+      <section className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
+        <h4 className="mb-3 text-sm font-semibold text-foreground">IPA repository details</h4>
+        <dl className="grid gap-3 text-xs">
+          <div>
+            <dt className="font-semibold text-foreground">Repository title</dt>
+            <dd className="break-words">{app.name}</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">Source</dt>
+            <dd>{app.sourceName}</dd>
+          </div>
+          {app.bundleIdentifier ? (
+            <div>
+              <dt className="font-semibold text-foreground">Bundle ID</dt>
+              <dd className="break-all">{app.bundleIdentifier}</dd>
+            </div>
+          ) : null}
+          {app.latestVersion ? (
+            <div>
+              <dt className="font-semibold text-foreground">IPA version</dt>
+              <dd>{app.latestVersion}</dd>
+            </div>
+          ) : null}
+          {app.minOSVersion ? (
+            <div>
+              <dt className="font-semibold text-foreground">IPA iOS requirement</dt>
+              <dd>{app.minOSVersion}+</dd>
+            </div>
+          ) : null}
+        </dl>
+      </section>
+
+      {appStoreDescription ? (
+        <section>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">App Store description</h4>
+          <p className="whitespace-pre-wrap">{appStoreDescription}</p>
+        </section>
+      ) : null}
+      {hasRepositoryNotes ? (
+        <section>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h4 className="text-sm font-semibold text-foreground">Repository notes</h4>
+            {repositoryNotesTranslateUrl ? (
+              <a
+                className="text-xs font-medium text-primary hover:underline"
+                href={repositoryNotesTranslateUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Translate to English
+              </a>
+            ) : null}
+          </div>
+          {app.name !== displayName ? <p className="mb-3 font-medium text-foreground">{app.name}</p> : null}
+          <p className="whitespace-pre-wrap">{repositoryNotes}</p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareLink?: boolean }) {
   const appStore = app.appStore ?? null;
   const fileSize = formatBytes(app.size);
   const rating = formatRating(appStore?.averageUserRating, appStore?.userRatingCount);
@@ -123,12 +250,10 @@ export function AppCard({ app }: { app: AppDto }) {
   const displayIconUrl = appStore?.artworkUrl512 ?? appStore?.artworkUrl100 ?? app.iconUrl;
   const primaryGenreName = appStore?.primaryGenreName ?? null;
   const appInfoUrl = appStore?.trackViewUrl ?? app.appStoreUrl ?? getAppStoreSearchUrl(app);
-  const appStoreDescription = appStore?.description ?? null;
-  const repositoryNotes = [app.subtitle, app.description].filter(Boolean).join("\n\n");
-  const primaryDescription = appStoreDescription ?? app.description;
-  const hasRepositoryNotes = repositoryNotes.length > 0;
-  const hasAppStoreDetails = Boolean(primaryGenreName || rating || appStore?.version || appStore?.minimumOsVersion);
-  const hasDetails = Boolean(primaryDescription || hasRepositoryNotes || app.bundleIdentifier || appStore);
+  const primaryDescription = appStore?.description ?? app.description;
+  const isRepositoryDescription = !appStore?.description && Boolean(app.description);
+  const primaryDescriptionTranslateUrl =
+    isRepositoryDescription && shouldOfferTranslation(app.description) ? getTranslateUrl(app.description) : null;
   const appPageId = app.bundleIdentifier ?? (app.id.startsWith("bundle:") ? app.id.slice("bundle:".length) : app.id);
   const appPagePath = `/apps/${encodeURIComponent(appPageId)}`;
   const [isDownloadPickerOpen, setIsDownloadPickerOpen] = useState(false);
@@ -149,40 +274,105 @@ export function AppCard({ app }: { app: AppDto }) {
 
   return (
     <>
-      <Card className="flex h-full min-h-[30rem] flex-col overflow-hidden rounded-2xl">
-        <CardHeader className="gap-4 p-4 sm:p-6">
-          <div className="flex gap-4">
+      <Card
+        className="flex h-full min-h-[23rem] min-w-0 cursor-pointer flex-col transition-colors hover:bg-muted/30"
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsDescriptionOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsDescriptionOpen(true);
+          }
+        }}
+      >
+        <CardHeader className="relative gap-4 p-4 sm:p-6">
+          {showShareLink ? (
+            <Button
+              asChild
+              className="absolute right-4 top-4 h-9 w-9 shrink-0 rounded-full px-0 sm:right-6 sm:top-6"
+              variant="outline"
+              size="sm"
+            >
+              <a
+                href={appPagePath}
+                aria-label={`Open share page for ${displayName}`}
+                rel="noreferrer"
+                target="_blank"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <ArrowUpRightIcon className="size-4" />
+              </a>
+            </Button>
+          ) : null}
+          <div className={showShareLink ? "flex min-w-0 gap-4 pr-12" : "flex min-w-0 gap-4"}>
             <AppIcon bundleIdentifier={app.bundleIdentifier} iconUrl={displayIconUrl} name={displayName} />
-            <div className="min-w-0 flex-1 space-y-2">
+            <div className="min-w-0 flex-1 space-y-3 overflow-hidden">
               <div className="min-w-0">
-                <CardTitle className="line-clamp-2 text-xl leading-tight">{displayName}</CardTitle>
+                <CardTitle className="line-clamp-2 break-words text-xl leading-tight">{displayName}</CardTitle>
                 <p className="mt-1 truncate text-sm text-muted-foreground">{displayDeveloper}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">
-                  {fileSize ?? "Size unknown"}
-                </span>
-                {hasMultipleSources ? <Badge variant="secondary">{app.downloadOptions.length} sources</Badge> : null}
-                {app.latestVersion ? <Badge variant="outline">v{app.latestVersion}</Badge> : null}
-                {appStore ? <Badge variant="outline">App Store</Badge> : null}
+              <div className="space-y-2 overflow-hidden">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <Badge className={appBadgeClassName}>{fileSize ?? "Size unknown"}</Badge>
+                  <Badge className={appBadgeClassName} variant="secondary">
+                    {app.downloadOptions.length} {app.downloadOptions.length === 1 ? "source" : "sources"}
+                  </Badge>
+                  {app.minOSVersion ? (
+                    <Badge className={appBadgeClassName} variant="outline">
+                      iOS {app.minOSVersion}+
+                    </Badge>
+                  ) : null}
+                  {app.latestVersion ? (
+                    <Badge className={appBadgeClassName} variant="outline">
+                      v{app.latestVersion}
+                    </Badge>
+                  ) : null}
+                </div>
+                {(primaryGenreName || rating) ? (
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {primaryGenreName ? (
+                      <Badge className={appBadgeClassName} variant="secondary">
+                        <span className="truncate">{primaryGenreName}</span>
+                      </Badge>
+                    ) : null}
+                    {rating ? (
+                      <Badge className={appMetricBadgeClassName} variant="outline">
+                        <StarIcon className="size-3 shrink-0" weight="fill" />
+                        <span className="truncate">{rating}</span>
+                      </Badge>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-1 flex-col gap-4 p-4 pt-0 sm:p-6 sm:pt-0">
+        <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0 sm:p-6 sm:pt-0">
           <div className="space-y-2">
-            {primaryGenreName || rating ? (
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                {primaryGenreName ? <Badge variant="secondary">{primaryGenreName}</Badge> : null}
-                {rating ? <Badge variant="outline">{rating}</Badge> : null}
-              </div>
-            ) : app.subtitle ? (
+            {!primaryDescription && app.subtitle ? (
               <p className="line-clamp-2 text-sm font-medium">{app.subtitle}</p>
             ) : null}
             {primaryDescription ? (
               <>
-                <p className="line-clamp-5 text-sm leading-6 text-muted-foreground">{primaryDescription}</p>
+                {isRepositoryDescription ? (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Repository notes</span>
+                    {primaryDescriptionTranslateUrl ? (
+                      <a
+                        className="font-medium text-primary hover:underline"
+                        href={primaryDescriptionTranslateUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        Translate
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="line-clamp-4 text-sm leading-6 text-muted-foreground">{primaryDescription}</p>
               </>
             ) : (
               <p className="text-sm leading-6 text-muted-foreground">
@@ -190,46 +380,31 @@ export function AppCard({ app }: { app: AppDto }) {
               </p>
             )}
           </div>
-
-          <div className="mt-auto space-y-3 rounded-xl border border-border/70 bg-background/40 p-3">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{app.sourceName}</Badge>
-              {app.minOSVersion ? <Badge variant="outline">iOS {app.minOSVersion}+</Badge> : null}
-            </div>
-            {hasDetails ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Button className="w-full" variant="outline" size="sm" onClick={() => setIsDescriptionOpen(true)}>
-                  View details
-                </Button>
-                <a href={appPagePath} className={buttonClasses({ className: "w-full", variant: "outline", size: "sm" })}>
-                  Share page
-                </a>
-              </div>
-            ) : null}
-          </div>
         </CardContent>
 
         <CardFooter className="grid grid-cols-2 gap-3 p-4 pt-0 sm:p-6 sm:pt-0">
-          <a
-            href={appInfoUrl}
-            rel="noreferrer"
-            target="_blank"
-            className={buttonClasses({ className: "w-full", variant: "secondary" })}
-          >
-            {appStore?.trackViewUrl || app.appStoreUrl ? "View App Store" : "Search App Store"}
-          </a>
+          <Button asChild className="w-full" variant="secondary">
+            <a href={appInfoUrl} rel="noreferrer" target="_blank" onClick={(event) => event.stopPropagation()}>
+              {appStore?.trackViewUrl || app.appStoreUrl ? "View App Store" : "Search App Store"}
+            </a>
+          </Button>
           {hasMultipleSources ? (
             <Button
               className="w-full"
               disabled={downloadableOptions.length === 0}
-              onClick={() => setIsDownloadPickerOpen(true)}
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsDownloadPickerOpen(true);
+              }}
             >
               Download IPA
             </Button>
           ) : app.downloadURL ? (
-            <a href={app.downloadURL} rel="noreferrer" target="_blank" className={buttonClasses({ className: "w-full" })}>
-              Download IPA
-            </a>
+            <Button asChild className="w-full">
+              <a href={app.downloadURL} rel="noreferrer" target="_blank" onClick={(event) => event.stopPropagation()}>
+                Download IPA
+              </a>
+            </Button>
           ) : (
             <Button className="w-full" variant="secondary" disabled>
               No IPA
@@ -247,7 +422,7 @@ export function AppCard({ app }: { app: AppDto }) {
           onMouseDown={() => setIsDescriptionOpen(false)}
         >
           <div
-            className="flex max-h-[85vh] min-h-0 w-full max-w-2xl flex-col rounded-2xl border border-border bg-card p-5 shadow-2xl"
+            className="flex max-h-[85vh] min-h-0 w-full max-w-2xl flex-col rounded-lg bg-card p-5 text-card-foreground ring-1 ring-foreground/10"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex shrink-0 items-start gap-4">
@@ -260,84 +435,8 @@ export function AppCard({ app }: { app: AppDto }) {
               </div>
             </div>
 
-            <div className="mt-5 min-h-0 space-y-5 overflow-y-auto overscroll-contain pr-1 text-sm leading-6 text-muted-foreground">
-              {hasAppStoreDetails ? (
-                <section className="rounded-xl border border-border/70 bg-background/40 p-3">
-                  <h4 className="mb-3 text-sm font-semibold text-foreground">App details</h4>
-                  <dl className="grid gap-3 text-xs sm:grid-cols-2">
-                    {primaryGenreName ? (
-                      <div>
-                        <dt className="font-semibold text-foreground">Category</dt>
-                        <dd>{primaryGenreName}</dd>
-                      </div>
-                    ) : null}
-                    {rating ? (
-                      <div>
-                        <dt className="font-semibold text-foreground">Rating</dt>
-                        <dd>{rating}</dd>
-                      </div>
-                    ) : null}
-                    {appStore?.version ? (
-                      <div>
-                        <dt className="font-semibold text-foreground">App Store version</dt>
-                        <dd>{appStore.version}</dd>
-                      </div>
-                    ) : null}
-                    {appStore?.minimumOsVersion ? (
-                      <div>
-                        <dt className="font-semibold text-foreground">App Store iOS</dt>
-                        <dd>{appStore.minimumOsVersion}+</dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                </section>
-              ) : null}
-
-              <section className="rounded-xl border border-border/70 bg-background/40 p-3">
-                <h4 className="mb-3 text-sm font-semibold text-foreground">IPA repository details</h4>
-                <dl className="grid gap-3 text-xs">
-                  <div>
-                    <dt className="font-semibold text-foreground">Repository title</dt>
-                    <dd className="break-words">{app.name}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-foreground">Source</dt>
-                    <dd>{app.sourceName}</dd>
-                  </div>
-                  {app.bundleIdentifier ? (
-                    <div>
-                      <dt className="font-semibold text-foreground">Bundle ID</dt>
-                      <dd className="break-all">{app.bundleIdentifier}</dd>
-                    </div>
-                  ) : null}
-                  {app.latestVersion ? (
-                    <div>
-                      <dt className="font-semibold text-foreground">IPA version</dt>
-                      <dd>{app.latestVersion}</dd>
-                    </div>
-                  ) : null}
-                  {app.minOSVersion ? (
-                    <div>
-                      <dt className="font-semibold text-foreground">IPA iOS requirement</dt>
-                      <dd>{app.minOSVersion}+</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </section>
-
-              {appStoreDescription ? (
-                <section>
-                  <h4 className="mb-2 text-sm font-semibold text-foreground">App Store description</h4>
-                  <p className="whitespace-pre-wrap">{appStoreDescription}</p>
-                </section>
-              ) : null}
-              {hasRepositoryNotes ? (
-                <section>
-                  <h4 className="mb-2 text-sm font-semibold text-foreground">Repository notes</h4>
-                  {app.name !== displayName ? <p className="mb-3 font-medium text-foreground">{app.name}</p> : null}
-                  <p className="whitespace-pre-wrap">{repositoryNotes}</p>
-                </section>
-              ) : null}
+            <div className="mt-5 min-h-0 overflow-y-auto overscroll-contain pr-1">
+              <AppDetailsContent app={app} />
             </div>
 
             <Button className="mt-5 w-full shrink-0" variant="secondary" onClick={() => setIsDescriptionOpen(false)}>
@@ -356,7 +455,7 @@ export function AppCard({ app }: { app: AppDto }) {
           onMouseDown={() => setIsDownloadPickerOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-2xl"
+            className="w-full max-w-lg rounded-lg bg-card p-5 text-card-foreground ring-1 ring-foreground/10"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-4">
@@ -374,27 +473,29 @@ export function AppCard({ app }: { app: AppDto }) {
                 const optionSize = formatBytes(option.size);
 
                 return (
-                  <a
+                  <Button
                     key={`${option.sourceId}:${option.downloadURL}`}
-                    href={option.downloadURL ?? undefined}
-                    rel="noreferrer"
-                    target="_blank"
-                    className={buttonClasses({
-                      className: "h-auto w-full justify-between gap-4 px-4 py-3 text-left",
-                      variant: "outline"
-                    })}
-                    onClick={() => setIsDownloadPickerOpen(false)}
+                    asChild
+                    className="h-auto w-full justify-between gap-4 px-4 py-3 text-left"
+                    variant="outline"
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate">{option.sourceName}</span>
-                      <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                        {[option.latestVersion ? `v${option.latestVersion}` : null, optionSize, option.minOSVersion ? `iOS ${option.minOSVersion}+` : null]
-                          .filter(Boolean)
-                          .join(" · ")}
+                    <a
+                      href={option.downloadURL ?? undefined}
+                      rel="noreferrer"
+                      target="_blank"
+                      onClick={() => setIsDownloadPickerOpen(false)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate">{option.sourceName}</span>
+                        <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                          {[option.latestVersion ? `v${option.latestVersion}` : null, optionSize, option.minOSVersion ? `iOS ${option.minOSVersion}+` : null]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-xs opacity-80">Download</span>
-                  </a>
+                      <span className="shrink-0 text-xs opacity-80">Download</span>
+                    </a>
+                  </Button>
                 );
               })}
             </div>

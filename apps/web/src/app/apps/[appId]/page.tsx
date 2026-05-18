@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { AppDto } from "@iappstores/contracts";
-import { AppCard } from "@/components/app-card";
-import { buttonClasses } from "@/components/ui/button";
+import { AppCard, AppDetailsContent } from "@/components/app-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchApp } from "@/lib/api";
 import { getAbsoluteUrl } from "@/lib/site";
 
@@ -89,18 +90,18 @@ export default async function AppPage({ params }: AppPageProps) {
   const shareUrl = getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.24),_transparent_36rem)]">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className={buttonClasses({ variant: "secondary" })}>
-            Back to apps
-          </Link>
-          <a href={shareUrl} className={buttonClasses({ variant: "outline" })}>
-            Share link
-          </a>
+          <Button asChild variant="secondary">
+            <Link href="/">Back to apps</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={shareUrl}>Share link</a>
+          </Button>
         </div>
 
-        <section className="rounded-3xl border border-border/80 bg-card/70 p-4 shadow-2xl backdrop-blur sm:p-6">
+        <section className="rounded-lg bg-card p-4 text-card-foreground ring-1 ring-foreground/10 sm:p-6">
           <p className="text-sm font-medium text-primary">Shareable app page</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-5xl">{name}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
@@ -108,7 +109,16 @@ export default async function AppPage({ params }: AppPageProps) {
           </p>
         </section>
 
-        <AppCard app={app} />
+        <AppCard app={app} showShareLink={false} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Full app details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AppDetailsContent app={app} />
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

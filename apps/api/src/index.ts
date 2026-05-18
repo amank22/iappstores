@@ -10,6 +10,7 @@ import {
   type AppListResponse,
   type AppsResponse,
   type SearchResponse,
+  type SitemapAppsResponse,
   type SourcesResponse
 } from "@iappstores/contracts";
 import { enrichAppsWithCachedAppStoreMetadata } from "./appStoreClient.js";
@@ -73,6 +74,24 @@ app.get("/api/sources", async (_req, res) => {
     sources: SOURCES.map((source) => sourceToDto(source))
   };
   res.json(body);
+});
+
+app.get("/api/sitemap/apps", async (_req, res) => {
+  try {
+    const groupedApps = await getGroupedAppsForSources(SOURCES);
+    const body: SitemapAppsResponse = {
+      apps: groupedApps.map((app) => ({
+        id: app.id,
+        bundleIdentifier: app.bundleIdentifier,
+        versionDate: app.versionDate
+      }))
+    };
+    res.json(body);
+  } catch (error) {
+    sendError(res, 502, "sitemap_apps_failed", "Could not build sitemap app list.", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 app.get("/api/apps", async (req, res) => {

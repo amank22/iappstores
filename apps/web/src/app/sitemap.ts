@@ -1,10 +1,9 @@
 import type { MetadataRoute } from "next";
-import { fetchApps } from "@/lib/api";
+import { fetchSitemapApps } from "@/lib/api";
 import { getAbsoluteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-const SITEMAP_PAGE_SIZE = 60;
 const MAX_APP_URLS = 45_000;
 
 function getLastModified(date: string | null): Date {
@@ -31,28 +30,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    let page = 1;
-    let totalPages = 1;
+    const response = await fetchSitemapApps();
 
-    while (page <= totalPages && entries.length <= MAX_APP_URLS) {
-      const response = await fetchApps({
-        page,
-        pageSize: SITEMAP_PAGE_SIZE,
-        includeAppStore: false
+    for (const app of response.apps.slice(0, MAX_APP_URLS)) {
+      entries.push({
+        url: getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`),
+        lastModified: getLastModified(app.versionDate),
+        changeFrequency: "weekly",
+        priority: 0.7
       });
-
-      totalPages = response.pagination.totalPages;
-
-      for (const app of response.apps) {
-        entries.push({
-          url: getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`),
-          lastModified: getLastModified(app.versionDate),
-          changeFrequency: "weekly",
-          priority: 0.7
-        });
-      }
-
-      page += 1;
     }
   } catch {
     // If the API is warming up, keep the sitemap valid with the homepage entry.
