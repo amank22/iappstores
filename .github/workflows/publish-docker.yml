@@ -17,6 +17,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   SITE_URL: https://iappstores.com
+  COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+  COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
 
 jobs:
   publish:
@@ -59,3 +61,14 @@ jobs:
           build-args: |
             SITE_URL=${{ env.SITE_URL }}
             NEXT_PUBLIC_SITE_URL=${{ env.SITE_URL }}
+
+      - name: Trigger Coolify deployment
+        if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' }}
+        run: |
+          curl --fail --silent --show-error --location \
+            --request GET "${COOLIFY_WEBHOOK_URL}" \
+            --header "Authorization: Bearer ${COOLIFY_API_TOKEN}"
+
+      - name: Skip Coolify deployment
+        if: ${{ env.COOLIFY_WEBHOOK_URL == '' || env.COOLIFY_API_TOKEN == '' }}
+        run: echo "Skipping Coolify deployment because COOLIFY_WEBHOOK_URL or COOLIFY_API_TOKEN is not configured."

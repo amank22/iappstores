@@ -82,6 +82,15 @@ ghcr.io/<owner>/<repo>:sha-<commit>
 
 No repository secrets are required for the default GHCR publishing flow; it uses `GITHUB_TOKEN`.
 
+To auto-deploy the published image in Coolify, add these optional GitHub repository secrets:
+
+```txt
+COOLIFY_WEBHOOK_URL=<Coolify deploy webhook URL>
+COOLIFY_API_TOKEN=<Coolify API token with deploy permission>
+```
+
+When both secrets are present, the Docker publishing workflow triggers the Coolify deploy webhook after pushing the GHCR image.
+
 ## License
 
 MIT
