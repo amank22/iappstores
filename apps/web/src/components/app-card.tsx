@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import type { AppDto } from "@iappstores/contracts";
 import { ArrowUpRightIcon, StarIcon } from "@phosphor-icons/react";
+import { PhotoProvider, PhotoView } from "react-photo-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { translateText } from "@/lib/api";
 
 const appBadgeClassName = "h-6 max-w-full px-2.5 text-xs";
 const appMetricBadgeClassName = "h-6 max-w-full gap-1 px-2.5 text-xs";
@@ -52,6 +54,10 @@ function shouldOfferTranslation(text: string | null | undefined): text is string
 
 function getTranslateUrl(text: string): string {
   return `https://translate.google.com/?sl=auto&tl=en&text=${encodeURIComponent(text)}&op=translate`;
+}
+
+function uniqueUrls(urls: string[]): string[] {
+  return [...new Set(urls)];
 }
 
 function hashText(value: string): number {
@@ -130,6 +136,61 @@ function AppIcon({
   );
 }
 
+function InlineTranslation({ text, compact = false }: { text: string; compact?: boolean }) {
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const fallbackUrl = getTranslateUrl(text);
+
+  async function handleTranslate(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsTranslating(true);
+    setError(null);
+
+    try {
+      const response = await translateText(text);
+      setTranslatedText(response.translatedText);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not translate this text.");
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
+  return (
+    <div className={compact ? "space-y-2" : "space-y-3"}>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="text-xs font-medium text-primary hover:underline disabled:pointer-events-none disabled:opacity-60"
+          disabled={isTranslating}
+          type="button"
+          onClick={handleTranslate}
+        >
+          {isTranslating ? "Translating..." : translatedText ? "Translate again" : "Translate to English"}
+        </button>
+        {error ? (
+          <a
+            className="text-xs font-medium text-primary hover:underline"
+            href={fallbackUrl}
+            rel="noreferrer"
+            target="_blank"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Open Google Translate
+          </a>
+        ) : null}
+      </div>
+      {translatedText ? (
+        <p className={compact ? "line-clamp-4 rounded-lg bg-muted/40 p-3 text-sm leading-6 text-foreground" : "whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-foreground"}>
+          {translatedText}
+        </p>
+      ) : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
 export function AppDetailsContent({ app }: { app: AppDto }) {
   const appStore = app.appStore ?? null;
   const rating = formatRating(appStore?.averageUserRating, appStore?.userRatingCount);
@@ -140,9 +201,15 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
   const hasRepositoryNotes = repositoryNotes.length > 0;
   const repositoryNotesTranslateUrl = shouldOfferTranslation(repositoryNotes) ? getTranslateUrl(repositoryNotes) : null;
   const hasAppStoreDetails = Boolean(primaryGenreName || rating || appStore?.version || appStore?.minimumOsVersion);
+  const screenshotUrls = uniqueUrls([
+    ...(appStore?.screenshotUrls ?? []),
+    ...(appStore?.ipadScreenshotUrls ?? []),
+    ...app.screenshots
+  ]).slice(0, 8);
 
   return (
-    <div className="space-y-5 text-sm leading-6 text-muted-foreground">
+    <>
+      <div className="space-y-5 text-sm leading-6 text-muted-foreground">
       {hasAppStoreDetails ? (
         <section className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
           <h4 className="mb-3 text-sm font-semibold text-foreground">App details</h4>
@@ -210,6 +277,30 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
         </dl>
       </section>
 
+      {screenshotUrls.length > 0 ? (
+        <section>
+          <h4 className="mb-3 text-sm font-semibold text-foreground">Screenshots</h4>
+          <PhotoProvider>
+            <div className="-mx-1 flex gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2">
+              {screenshotUrls.map((screenshotUrl, index) => (
+                <PhotoView key={screenshotUrl} src={screenshotUrl}>
+                  <button className="shrink-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30" type="button">
+                    {/* External App Store/repository screenshots are remote URLs, so img avoids domain config. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={screenshotUrl}
+                      alt={`${displayName} screenshot ${index + 1}`}
+                      className="h-72 w-36 rounded-lg object-cover ring-1 ring-foreground/10 sm:h-80 sm:w-40"
+                      loading="lazy"
+                    />
+                  </button>
+                </PhotoView>
+              ))}
+            </div>
+          </PhotoProvider>
+        </section>
+      ) : null}
+
       {appStoreDescription ? (
         <section>
           <h4 className="mb-2 text-sm font-semibold text-foreground">App Store description</h4>
@@ -220,22 +311,15 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
         <section>
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <h4 className="text-sm font-semibold text-foreground">Repository notes</h4>
-            {repositoryNotesTranslateUrl ? (
-              <a
-                className="text-xs font-medium text-primary hover:underline"
-                href={repositoryNotesTranslateUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Translate to English
-              </a>
-            ) : null}
           </div>
+          {repositoryNotesTranslateUrl ? <InlineTranslation text={repositoryNotes} /> : null}
           {app.name !== displayName ? <p className="mb-3 font-medium text-foreground">{app.name}</p> : null}
           <p className="whitespace-pre-wrap">{repositoryNotes}</p>
         </section>
       ) : null}
-    </div>
+      </div>
+
+    </>
   );
 }
 
@@ -372,6 +456,7 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
                     ) : null}
                   </div>
                 ) : null}
+                {primaryDescriptionTranslateUrl ? <InlineTranslation compact text={app.description ?? primaryDescription} /> : null}
                 <p className="line-clamp-4 text-sm leading-6 text-muted-foreground">{primaryDescription}</p>
               </>
             ) : (

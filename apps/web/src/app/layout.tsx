@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getSiteUrl, siteDescription } from "@/lib/site";
 import "./globals.css";
+import "react-photo-view/dist/react-photo-view.css";
 import { Noto_Serif, Manrope, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 
