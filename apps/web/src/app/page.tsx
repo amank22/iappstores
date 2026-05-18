@@ -46,6 +46,52 @@ const IOS_FILTER_LABELS: Record<IosVersionOperator, string> = {
 const DEFAULT_IOS_OPERATOR: IosVersionOperator = "lte";
 const APP_CATEGORIES = new Set<AppCategory>(["all", "recent", "games", "tools", "media", "education"]);
 const IOS_OPERATORS = new Set<IosVersionOperator>(["lte", "gte"]);
+const HOME_JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      name: "iappstores",
+      url: "https://iappstores.com/",
+      description:
+        "Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked, modded, and patched iOS apps.",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: "https://iappstores.com/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "What is iappstores?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "iappstores is a browser for AltStore and SideStore compatible repositories. It helps users search IPA files, compare repository sources, and view available download options."
+          }
+        },
+        {
+          "@type": "Question",
+          name: "Can I find tweaked or modded IPA files?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Many indexed repositories include tweaked, modded, patched, or subscription-unlocked IPA listings. Repository notes are preserved so users can understand what changed in each build."
+          }
+        },
+        {
+          "@type": "Question",
+          name: "Does iappstores host IPA files?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "iappstores indexes third-party repository metadata and links to source download options. It does not modify IPA files or replace repository source notes."
+          }
+        }
+      ]
+    }
+  ]
+};
 
 function readUrlState() {
   if (typeof window === "undefined") {
@@ -370,6 +416,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.24),_transparent_36rem)]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSON_LD) }}
+      />
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:gap-6 sm:px-6 sm:py-8 lg:px-8">
         <section className="overflow-hidden rounded-3xl border border-border/80 bg-card/70 shadow-2xl backdrop-blur">
           <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:p-8">
@@ -404,6 +454,36 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <Card className="rounded-3xl">
+            <CardHeader>
+              <CardTitle>Direct IPA Downloads</CardTitle>
+              <CardDescription>
+                Search indexed IPA listings from AltStore and SideStore compatible repositories, including multiple
+                mirrors and source download options for popular iOS apps.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card className="rounded-3xl">
+            <CardHeader>
+              <CardTitle>Tweaked And Modded Apps</CardTitle>
+              <CardDescription>
+                Repository notes are preserved for tweaked, modded, patched, premium-unlocked, and subscription-unlocked
+                IPA builds so the download context stays visible.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card className="rounded-3xl">
+            <CardHeader>
+              <CardTitle>App Store Context</CardTitle>
+              <CardDescription>
+                When available, iappstores enriches listings with official App Store names, icons, descriptions,
+                categories, ratings, and iOS compatibility details.
+              </CardDescription>
+            </CardHeader>
+          </Card>
         </section>
 
         <Card className="rounded-3xl">
@@ -544,6 +624,32 @@ export default function Home() {
               )}
             </div>
           ) : null}
+        </section>
+
+        <section className="grid gap-4 rounded-3xl border border-border/80 bg-card/70 p-4 shadow-xl backdrop-blur sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold tracking-tight">Browse IPA repositories with searchable metadata</h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              iappstores indexes iOS app repositories so you can search by app name, bundle ID, developer, source,
+              category, and minimum iOS version. Duplicate bundle IDs are grouped into one app card with multiple IPA
+              download options, making repeated listings easier to compare.
+            </p>
+          </div>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <div>
+              <h3 className="font-semibold text-foreground">Does iappstores host IPA files?</h3>
+              <p className="mt-1 leading-6">
+                No. The site indexes repository metadata and links to the original source download URLs.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Why show repository notes?</h3>
+              <p className="mt-1 leading-6">
+                IPA listings often mention tweaks, patches, unlocked features, or installation notes. Those details are
+                kept separate from official App Store descriptions.
+              </p>
+            </div>
+          </div>
         </section>
       </div>
     </main>
