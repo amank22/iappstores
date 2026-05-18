@@ -5,6 +5,7 @@ import {
   SearchResponseSchema,
   SitemapAppsResponseSchema,
   SourcesResponseSchema,
+  TranslationResponseSchema,
   type AppCategory,
   type AppListResponse,
   type AppResponse,
@@ -13,7 +14,8 @@ import {
   type SearchResponse,
   type SitemapAppsResponse,
   type SourceDto,
-  type SourcesResponse
+  type SourcesResponse,
+  type TranslationResponse
 } from "@iappstores/contracts";
 
 export type AppQueryOptions = {
@@ -28,6 +30,11 @@ export type AppQueryOptions = {
 
 type Parser<T> = {
   parse: (data: unknown) => T;
+};
+
+type RequestOptions = {
+  method?: "GET" | "POST";
+  body?: unknown;
 };
 
 function getApiBaseUrl(): string {
@@ -54,11 +61,14 @@ function summarizeTextBody(text: string): string {
   return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
 }
 
-async function request<T>(path: string, parser: Parser<T>): Promise<T> {
+async function request<T>(path: string, parser: Parser<T>, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: options.method ?? "GET",
     headers: {
-      accept: "application/json"
-    }
+      accept: "application/json",
+      ...(options.body === undefined ? {} : { "content-type": "application/json" })
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
 
   const text = await response.text();
@@ -138,4 +148,14 @@ export async function searchApps(query: string, options: AppQueryOptions = {}): 
   }
 
   return request(`/api/search?${params.toString()}`, SearchResponseSchema);
+}
+
+export async function translateText(text: string, to = "en"): Promise<TranslationResponse> {
+  return request("/api/translate", TranslationResponseSchema, {
+    method: "POST",
+    body: {
+      text,
+      to
+    }
+  });
 }

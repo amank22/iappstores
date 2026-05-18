@@ -68,6 +68,12 @@ export const AppIdParamSchema = z.object({
   appId: z.string().trim().min(1)
 });
 
+export const TranslationRequestSchema = z.object({
+  text: z.string().trim().min(1).max(4_000),
+  from: z.string().trim().toLowerCase().regex(/^(?:[a-z]{2}|auto)$/).default("auto"),
+  to: z.string().trim().toLowerCase().regex(/^[a-z]{2}$/).default("en")
+});
+
 export const BrowseAppsQuerySchema = z.object({
   sourceId: QueryStringSchema.optional(),
   page: QueryPositiveIntegerSchema(1, 10_000),
@@ -211,6 +217,13 @@ export const SitemapAppsResponseSchema = z.object({
   apps: z.array(SitemapAppSchema)
 });
 
+export const TranslationResponseSchema = z.object({
+  sourceText: z.string(),
+  translatedText: z.string(),
+  from: z.string().nullable(),
+  to: z.string()
+});
+
 export const ApiErrorResponseSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -221,6 +234,7 @@ export const ApiErrorResponseSchema = z.object({
 
 export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
 export type AppIdParam = z.infer<typeof AppIdParamSchema>;
+export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
 export type AppCategory = z.infer<typeof AppCategorySchema>;
 export type DerivedAppCategory = z.infer<typeof DerivedAppCategorySchema>;
 export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
@@ -239,4 +253,5 @@ export type AppListResponse = z.infer<typeof AppListResponseSchema>;
 export type AppResponse = z.infer<typeof AppResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type SitemapAppsResponse = z.infer<typeof SitemapAppsResponseSchema>;
+export type TranslationResponse = z.infer<typeof TranslationResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;

@@ -5,13 +5,15 @@ import {
   BrowseAppsQuerySchema,
   SearchAppsQuerySchema,
   SourceIdParamSchema,
+  TranslationRequestSchema,
   type AppDto,
   type AppResponse,
   type AppListResponse,
   type AppsResponse,
   type SearchResponse,
   type SitemapAppsResponse,
-  type SourcesResponse
+  type SourcesResponse,
+  type TranslationResponse
 } from "@iappstores/contracts";
 import { enrichAppsWithCachedAppStoreMetadata } from "./appStoreClient.js";
 import { closeAppStoreCacheStore, initAppStoreCacheStore } from "./appStoreCacheStore.js";
@@ -28,6 +30,7 @@ import { closeRepoCacheStore, initRepoCacheStore } from "./repoCacheStore.js";
 import { getSourceApps } from "./repoClient.js";
 import { startRepoRefreshWorker } from "./repoRefreshWorker.js";
 import { findSource, sourceToDto, SOURCES } from "./sources.js";
+import { translateText } from "./translateClient.js";
 
 const app = express();
 const port = Number(process.env.API_PORT ?? 4000);
@@ -61,6 +64,7 @@ app.use(
     origin: frontendOrigin
   })
 );
+app.use(express.json({ limit: "16kb" }));
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -74,6 +78,28 @@ app.get("/api/sources", async (_req, res) => {
     sources: SOURCES.map((source) => sourceToDto(source))
   };
   res.json(body);
+});
+
+app.post("/api/translate", async (req, res) => {
+  const parsedBody = TranslationRequestSchema.safeParse(req.body);
+  if (!parsedBody.success) {
+    sendError(res, 400, "invalid_translation_request", "Translation request body is invalid.", parsedBody.error.flatten());
+    return;
+  }
+
+  if (process.env.TRANSLATION_DISABLED === "true") {
+    sendError(res, 503, "translation_disabled", "Translation is disabled for this deployment.");
+    return;
+  }
+
+  try {
+    const body: TranslationResponse = await translateText(parsedBody.data);
+    res.json(body);
+  } catch (error) {
+    sendError(res, 502, "translation_failed", "Could not translate this text.", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 app.get("/api/sitemap/apps", async (_req, res) => {
