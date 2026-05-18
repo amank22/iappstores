@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import { getSiteUrl, siteDescription } from "@/lib/site";
 import "./globals.css";
+import { Noto_Serif, Manrope, JetBrains_Mono } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
+
+const manropeHeading = Manrope({subsets:['latin'],variable:'--font-heading'});
+
+const notoSerif = Noto_Serif({subsets:['latin'],variable:'--font-serif'});
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -58,7 +66,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("dark font-serif", notoSerif.variable, manropeHeading.variable, "font-mono", jetbrainsMono.variable)}>
       <body>{children}</body>
     </html>
   );

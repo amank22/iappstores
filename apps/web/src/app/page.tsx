@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchApps, fetchSources, searchApps } from "@/lib/api";
 
@@ -127,7 +127,7 @@ function AppGridSkeleton() {
         <Card key={index}>
           <CardHeader className="p-4 sm:p-6">
             <div className="flex gap-4">
-              <Skeleton className="h-14 w-14 rounded-2xl sm:h-16 sm:w-16" />
+              <Skeleton className="h-14 w-14 rounded-lg sm:h-16 sm:w-16" />
               <div className="flex-1 space-y-3">
                 <Skeleton className="h-5 w-2/3" />
                 <Skeleton className="h-4 w-1/2" />
@@ -415,79 +415,56 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.24),_transparent_36rem)]">
+    <main className="min-h-screen bg-background text-foreground">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSON_LD) }}
       />
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:gap-6 sm:px-6 sm:py-8 lg:px-8">
-        <section className="overflow-hidden rounded-3xl border border-border/80 bg-card/70 shadow-2xl backdrop-blur">
-          <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:p-8">
-            <div className="space-y-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 lg:px-8">
+        <section className="overflow-hidden rounded-lg bg-card text-card-foreground ring-1 ring-foreground/10">
+          <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_16rem] lg:p-6">
+            <div className="space-y-3">
               <div className="flex items-center gap-3">
                 {/* Brand asset lives in public/ so it also works for Docker/Coolify deployments. */}
-                <img src="/logo.svg" alt="" className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20" />
+                <img src="/logo.svg" alt="" className="h-9 w-9 rounded-lg ring-1 ring-foreground/10" />
                 <Badge variant="secondary">AltStore and SideStore repositories</Badge>
               </div>
               <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">iappstores</h1>
+                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">iappstores</h1>
                 <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
                   Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked,
                   modded, and patched iOS apps with App Store context when available.
                 </p>
               </div>
               <Input
-                className="h-12 rounded-2xl text-base"
+                className="h-8"
                 placeholder="Search apps, bundle IDs, developers..."
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-1">
-              <div className="rounded-2xl border border-border bg-background/50 p-4">
-                <div className="text-3xl font-semibold">{isLoadingSources ? "-" : sources.length}</div>
+              <div className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
+                <div className="text-2xl font-semibold">{isLoadingSources ? "-" : sources.length}</div>
                 <div className="mt-1 text-muted-foreground">Sources indexed</div>
               </div>
-              <div className="rounded-2xl border border-border bg-background/50 p-4">
-                <div className="text-3xl font-semibold">{pagination.totalItems}</div>
+              <div className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
+                <div className="text-2xl font-semibold">{pagination.totalItems}</div>
                 <div className="mt-1 text-muted-foreground">{trimmedQuery ? "Matches" : "Apps available"}</div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <Card className="rounded-3xl">
-            <CardHeader>
-              <CardTitle>Direct IPA Downloads</CardTitle>
-              <CardDescription>
-                Search indexed IPA listings from AltStore and SideStore compatible repositories, including multiple
-                mirrors and source download options for popular iOS apps.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="rounded-3xl">
-            <CardHeader>
-              <CardTitle>Tweaked And Modded Apps</CardTitle>
-              <CardDescription>
-                Repository notes are preserved for tweaked, modded, patched, premium-unlocked, and subscription-unlocked
-                IPA builds so the download context stays visible.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className="rounded-3xl">
-            <CardHeader>
-              <CardTitle>App Store Context</CardTitle>
-              <CardDescription>
-                When available, iappstores enriches listings with official App Store names, icons, descriptions,
-                categories, ratings, and iOS compatibility details.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        <section className="flex gap-2 overflow-x-auto pb-1 text-xs text-muted-foreground">
+          <Badge variant="outline">Direct IPA downloads</Badge>
+          <Badge variant="outline">Tweaked and modded apps</Badge>
+          <Badge variant="outline">Repository notes preserved</Badge>
+          <Badge variant="outline">App Store metadata when available</Badge>
         </section>
 
-        <Card className="rounded-3xl">
-          <CardHeader className="flex gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+        <Card>
+          <CardHeader className="flex gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
             <div>
               <CardTitle>Refine results</CardTitle>
               <CardDescription>Use filters when you need them. Reset anytime.</CardDescription>
@@ -501,7 +478,7 @@ export default function Home() {
               Reset filters
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+          <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {visibleCategories.map((category) => (
                 <Button
@@ -517,22 +494,33 @@ export default function Home() {
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_11rem]">
-              <Select value={selectedSourceId} onChange={(event) => setSelectedSourceId(event.target.value)}>
-                <option value={ALL_SOURCES}>All sources</option>
-                {sources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
+              <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                <SelectTrigger className="h-8 w-full">
+                  <SelectValue placeholder="All sources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_SOURCES}>All sources</SelectItem>
+                  {sources.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               <Select
                 value={iosVersionOperator}
-                onChange={(event) => setIosVersionOperator(event.target.value as IosVersionOperator)}
+                onValueChange={(value) => setIosVersionOperator(value as IosVersionOperator)}
               >
-                <option value="lte">Compatible with iOS</option>
-                <option value="gte">Requires at least iOS</option>
+                <SelectTrigger className="h-8 w-full">
+                  <SelectValue placeholder="Compatible with iOS" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lte">Compatible with iOS</SelectItem>
+                  <SelectItem value="gte">Requires at least iOS</SelectItem>
+                </SelectContent>
               </Select>
               <Input
+                className="h-8"
                 inputMode="decimal"
                 pattern="[0-9]+(\\.[0-9]+){0,2}"
                 placeholder="iOS, e.g. 16.0"
@@ -542,7 +530,7 @@ export default function Home() {
             </div>
 
             {hasActiveFilters ? (
-              <div className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-background/40 p-3">
+              <div className="flex flex-wrap gap-2 rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
                 <span className="self-center text-xs font-medium text-muted-foreground">Active:</span>
                 {trimmedQuery ? <Badge variant="outline">Search: {trimmedQuery}</Badge> : null}
                 {selectedCategory !== "all" ? <Badge variant="outline">{CATEGORY_LABELS[selectedCategory]}</Badge> : null}
@@ -605,7 +593,7 @@ export default function Home() {
           )}
 
           {apps.length > 0 ? (
-            <div ref={loadMoreRef} className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card/70 p-4">
+            <div ref={loadMoreRef} className="flex flex-col items-center gap-3 rounded-lg bg-card p-4 ring-1 ring-foreground/10">
               {pagination.hasNextPage ? (
                 <>
                   <p className="text-sm text-muted-foreground">
@@ -626,7 +614,7 @@ export default function Home() {
           ) : null}
         </section>
 
-        <section className="grid gap-4 rounded-3xl border border-border/80 bg-card/70 p-4 shadow-xl backdrop-blur sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section className="grid gap-4 rounded-lg bg-card p-4 text-card-foreground ring-1 ring-foreground/10 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold tracking-tight">Browse IPA repositories with searchable metadata</h2>
             <p className="text-sm leading-6 text-muted-foreground">

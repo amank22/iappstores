@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { NotFoundSearch } from "@/components/not-found-search";
 import { Badge } from "@/components/ui/badge";
-import { buttonClasses } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const popularSearches = ["YouTube", "Instagram", "Spotify", "TikTok"];
@@ -14,16 +14,13 @@ const categoryLinks = [
 
 export default function NotFound() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.28),_transparent_38rem)]">
+    <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="mx-auto grid min-h-screen w-full max-w-6xl place-items-center px-4 py-10 sm:px-6 lg:px-8">
-        <section className="relative w-full overflow-hidden rounded-[2rem] border border-border/80 bg-card/75 p-5 shadow-2xl backdrop-blur sm:p-8 lg:p-10">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 left-8 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
-
+        <section className="relative w-full overflow-hidden rounded-lg bg-card p-5 text-card-foreground ring-1 ring-foreground/10 sm:p-8 lg:p-10">
           <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
             <div className="space-y-6">
               <div className="flex flex-wrap items-center gap-3">
-                <img src="/logo.svg" alt="" className="h-14 w-14 rounded-2xl shadow-lg shadow-primary/20" />
+                <img src="/logo.svg" alt="" className="h-14 w-14 rounded-lg ring-1 ring-foreground/10" />
                 <Badge variant="secondary">404 - App route not found</Badge>
               </div>
 
@@ -42,28 +39,24 @@ export default function NotFound() {
 
               <div className="flex flex-wrap gap-2">
                 {popularSearches.map((search) => (
-                  <Link
-                    key={search}
-                    href={`/?q=${encodeURIComponent(search)}`}
-                    className={buttonClasses({ variant: "outline", size: "sm" })}
-                  >
-                    {search}
-                  </Link>
+                  <Button key={search} asChild variant="outline" size="sm">
+                    <Link href={`/?q=${encodeURIComponent(search)}`}>{search}</Link>
+                  </Button>
                 ))}
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Link href="/" className={buttonClasses({ className: "rounded-2xl", variant: "default" })}>
-                  Back to homepage
-                </Link>
-                <Link href="/sitemap.xml" className={buttonClasses({ className: "rounded-2xl", variant: "secondary" })}>
-                  Open sitemap
-                </Link>
+                <Button asChild variant="default">
+                  <Link href="/">Back to homepage</Link>
+                </Button>
+                <Button asChild variant="secondary">
+                  <Link href="/sitemap.xml">Open sitemap</Link>
+                </Button>
               </div>
             </div>
 
             <div className="grid gap-4">
-              <Card className="rounded-3xl border-border/80 bg-background/50">
+              <Card>
                 <CardHeader>
                   <CardTitle>Try a shortcut</CardTitle>
                 </CardHeader>
@@ -72,7 +65,7 @@ export default function NotFound() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="rounded-2xl border border-border/80 bg-card/60 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                      className="rounded-lg bg-muted/40 px-4 py-3 text-sm font-medium text-foreground ring-1 ring-foreground/10 transition-colors hover:bg-muted"
                     >
                       {link.label}
                     </Link>
@@ -80,11 +73,11 @@ export default function NotFound() {
                 </CardContent>
               </Card>
 
-              <div className="rounded-3xl border border-border/80 bg-background/40 p-5 text-sm leading-6 text-muted-foreground">
+              <div className="rounded-lg bg-muted/40 p-5 text-sm leading-6 text-muted-foreground ring-1 ring-foreground/10">
                 <div className="text-5xl font-black text-foreground">404</div>
                 <p className="mt-3">
                   Tip: shareable app URLs work best with bundle IDs, for example
-                  <span className="mt-2 block break-all rounded-2xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
+                  <span className="mt-2 block break-all rounded-md bg-secondary px-3 py-2 text-xs text-secondary-foreground">
                     /apps/com.google.ios.youtube
                   </span>
                 </p>

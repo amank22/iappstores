@@ -19,12 +19,12 @@ export function NotFoundSearch() {
     <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={submitSearch}>
       <Input
         aria-label="Search IPA apps"
-        className="h-12 rounded-2xl text-base"
+        className="h-8"
         placeholder="Search YouTube, Instagram, Spotify..."
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <Button className="h-12 rounded-2xl px-6" type="submit">
+      <Button type="submit">
         Search apps
       </Button>
     </form>
