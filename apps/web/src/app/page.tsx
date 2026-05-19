@@ -9,6 +9,7 @@ import type {
   Pagination,
   SourceDto
 } from "@iappstores/contracts";
+import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { AppCard } from "@/components/app-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,13 +125,17 @@ function AppGridSkeleton() {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: 4 }).map((_, index) => (
-        <Card key={index}>
-          <CardHeader className="p-4 sm:p-6">
-            <div className="flex gap-4">
-              <Skeleton className="h-14 w-14 rounded-lg sm:h-16 sm:w-16" />
-              <div className="flex-1 space-y-3">
-                <Skeleton className="h-5 w-2/3" />
+        <Card key={index} className="overflow-hidden">
+          <Skeleton className="-mt-4 h-[13rem] w-full shrink-0 rounded-none sm:h-[15rem]" />
+          <CardHeader className="gap-3 p-4 pt-4 sm:p-6 sm:pt-5">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-4/5" />
                 <Skeleton className="h-4 w-1/2" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-6 w-16 rounded-full" />
+                <Skeleton className="h-6 w-20 rounded-full" />
               </div>
             </div>
           </CardHeader>
@@ -370,6 +375,18 @@ export default function Home() {
       }
     }
 
+    let scrollRafId = 0;
+
+    function scheduleNearViewportCheck() {
+      if (scrollRafId !== 0) {
+        return;
+      }
+      scrollRafId = window.requestAnimationFrame(() => {
+        scrollRafId = 0;
+        maybeLoadNextPage();
+      });
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
@@ -382,15 +399,18 @@ export default function Home() {
     );
 
     observer.observe(observedNode);
-    window.addEventListener("scroll", maybeLoadNextPage, { passive: true });
-    window.addEventListener("resize", maybeLoadNextPage);
+    window.addEventListener("scroll", scheduleNearViewportCheck, { passive: true });
+    window.addEventListener("resize", scheduleNearViewportCheck);
 
     const frame = window.requestAnimationFrame(maybeLoadNextPage);
 
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", maybeLoadNextPage);
-      window.removeEventListener("resize", maybeLoadNextPage);
+      if (scrollRafId !== 0) {
+        window.cancelAnimationFrame(scrollRafId);
+      }
+      window.removeEventListener("scroll", scheduleNearViewportCheck);
+      window.removeEventListener("resize", scheduleNearViewportCheck);
       observer.disconnect();
     };
   }, [loadNextPage, pagination.hasNextPage, apps.length]);
@@ -420,6 +440,25 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSON_LD) }}
       />
+      <div
+        role="region"
+        aria-label="Third-party software notice"
+        className="border-b border-amber-500/25 bg-amber-500/[0.07]"
+      >
+        <div className="mx-auto flex max-w-7xl gap-3 px-3 py-3 sm:px-6 lg:px-8">
+          <ShieldWarningIcon
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-400"
+            aria-hidden
+          />
+          <div className="min-w-0 space-y-1 text-sm leading-snug">
+            <p className="font-medium text-amber-100">Third-party sources — judge safety yourself</p>
+            <p className="text-amber-50/85">
+              IPAs come from many independent repositories we index; we do not host files, verify authenticity, or review
+              code for malware or privacy impact. Only install what you trust after checking each source and listing.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 lg:px-8">
         <section className="overflow-hidden rounded-lg bg-card text-card-foreground ring-1 ring-foreground/10">
           <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_16rem] lg:p-6">

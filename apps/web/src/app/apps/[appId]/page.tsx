@@ -109,7 +109,7 @@ export default async function AppPage({ params }: AppPageProps) {
           </p>
         </section>
 
-        <AppCard app={app} showShareLink={false} />
+        <AppCard app={app} showScreenshotHero={false} showShareLink={false} />
 
         <Card>
           <CardHeader>
