@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import type { AppDto } from "@iappstores/contracts";
 import { ArrowUpRightIcon, StarIcon } from "@phosphor-icons/react";
 import { PhotoProvider, PhotoView } from "react-photo-view";
@@ -60,6 +61,15 @@ function uniqueUrls(urls: string[]): string[] {
   return [...new Set(urls)];
 }
 
+function getScreenshotUrls(app: AppDto): string[] {
+  const appStore = app.appStore ?? null;
+  return uniqueUrls([
+    ...(appStore?.screenshotUrls ?? []),
+    ...(appStore?.ipadScreenshotUrls ?? []),
+    ...app.screenshots
+  ]);
+}
+
 function hashText(value: string): number {
   return [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
 }
@@ -85,6 +95,15 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+function getHueFallbackBackground(bundleIdentifier: string | null, name: string): CSSProperties {
+  const hue = hashText(bundleIdentifier ?? name) % 360;
+  return {
+    background:
+      `radial-gradient(circle at 30% 25%, hsl(${hue} 90% 74%), transparent 38%), ` +
+      `linear-gradient(135deg, hsl(${hue} 80% 52%), hsl(${(hue + 48) % 360} 78% 32%))`
+  };
+}
+
 function AppIcon({
   bundleIdentifier,
   iconUrl,
@@ -95,12 +114,7 @@ function AppIcon({
   name: string;
 }) {
   const [hasFailed, setHasFailed] = useState(false);
-  const hue = hashText(bundleIdentifier ?? name) % 360;
-  const fallbackStyle = {
-    background:
-      `radial-gradient(circle at 30% 25%, hsl(${hue} 90% 74%), transparent 38%), ` +
-      `linear-gradient(135deg, hsl(${hue} 80% 52%), hsl(${(hue + 48) % 360} 78% 32%))`
-  };
+  const fallbackStyle = getHueFallbackBackground(bundleIdentifier, name);
 
   useEffect(() => {
     setHasFailed(false);
@@ -201,11 +215,7 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
   const hasRepositoryNotes = repositoryNotes.length > 0;
   const repositoryNotesTranslateUrl = shouldOfferTranslation(repositoryNotes) ? getTranslateUrl(repositoryNotes) : null;
   const hasAppStoreDetails = Boolean(primaryGenreName || rating || appStore?.version || appStore?.minimumOsVersion);
-  const screenshotUrls = uniqueUrls([
-    ...(appStore?.screenshotUrls ?? []),
-    ...(appStore?.ipadScreenshotUrls ?? []),
-    ...app.screenshots
-  ]).slice(0, 8);
+  const screenshotUrls = getScreenshotUrls(app).slice(0, 8);
 
   return (
     <>
@@ -323,7 +333,81 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
   );
 }
 
-export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareLink?: boolean }) {
+/** Opaque pills — avoid backdrop-filter here (very costly × many cards while scrolling). */
+const overlayBadgeClassName =
+  `${appBadgeClassName} border-0 bg-card/92 text-card-foreground shadow-sm ring-1 ring-foreground/12`;
+
+const cardHeroHeightClass = "h-[13rem] sm:h-[15rem]";
+
+function HeroAmbientBackground({
+  bundleIdentifier,
+  iconUrl,
+  name
+}: {
+  bundleIdentifier: string | null;
+  iconUrl: string | null;
+  name: string;
+}) {
+  const [hasFailed, setHasFailed] = useState(false);
+
+  useEffect(() => {
+    setHasFailed(false);
+  }, [iconUrl]);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden" aria-hidden>
+      <div className="absolute inset-0 opacity-[0.96]" style={getHueFallbackBackground(bundleIdentifier, name)} />
+      {iconUrl && !hasFailed ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={iconUrl}
+            alt=""
+            className="absolute left-1/2 top-1/2 min-h-[115%] min-w-[115%] -translate-x-1/2 -translate-y-1/2 object-cover opacity-[0.44] blur-lg saturate-[1.08]"
+            loading="lazy"
+            onError={() => setHasFailed(true)}
+          />
+        </>
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-b from-card/50 via-card/10 to-card/60" />
+    </div>
+  );
+}
+
+/** Gradients only — backdrop-blur on scrollable lists kills scroll performance. */
+function CardHeroBottomFade() {
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[62%] bg-gradient-to-t from-card to-transparent opacity-[0.92]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[50%] bg-gradient-to-t from-card/85 to-transparent"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[38%] bg-gradient-to-t from-card/55 via-card/15 to-transparent"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-24 bg-gradient-to-t from-card via-card/30 to-transparent sm:h-[6.75rem]"
+        aria-hidden
+      />
+    </>
+  );
+}
+
+export const AppCard = memo(function AppCard({
+  app,
+  showShareLink = true,
+  showScreenshotHero = true
+}: {
+  app: AppDto;
+  showShareLink?: boolean;
+  /** When false, skips the preview strip (e.g. detail page already shows a full gallery). */
+  showScreenshotHero?: boolean;
+}) {
   const appStore = app.appStore ?? null;
   const fileSize = formatBytes(app.size);
   const rating = formatRating(appStore?.averageUserRating, appStore?.userRatingCount);
@@ -343,6 +427,11 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
   const [isDownloadPickerOpen, setIsDownloadPickerOpen] = useState(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
 
+  const allScreenshotUrls = getScreenshotUrls(app);
+  const previewScreenshotUrls = showScreenshotHero ? allScreenshotUrls.slice(0, 3) : [];
+  const hasPreviewScreenshots = previewScreenshotUrls.length > 0;
+  const moreScreenshotCount = showScreenshotHero ? allScreenshotUrls.length - previewScreenshotUrls.length : 0;
+
   useEffect(() => {
     if (!isDescriptionOpen && !isDownloadPickerOpen) {
       return;
@@ -358,9 +447,20 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
 
   return (
     <>
-      <Card
-        className="flex h-full min-h-[23rem] min-w-0 cursor-pointer flex-col transition-colors hover:bg-muted/30"
-        role="button"
+      {/* Shadow/lift on wrapper — ui Card uses overflow-hidden which clips box-shadow. */}
+      <div
+        className={[
+          "app-card-hover-wrap h-full min-h-[23rem] min-w-0 rounded-lg",
+          "transition-[transform,box-shadow] duration-200 ease-out",
+          "hover:-translate-y-1 hover:shadow-[0_14px_44px_-10px_rgba(0,0,0,0.38)]",
+          "dark:hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.72)]",
+          "focus-within:-translate-y-1 focus-within:shadow-[0_14px_44px_-10px_rgba(0,0,0,0.38)]",
+          "dark:focus-within:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.72)]"
+        ].join(" ")}
+      >
+        <Card
+          className="flex h-full min-h-[23rem] min-w-0 cursor-pointer flex-col [contain:layout_paint]"
+          role="button"
         tabIndex={0}
         onClick={() => setIsDescriptionOpen(true)}
         onKeyDown={(event) => {
@@ -370,8 +470,102 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
           }
         }}
       >
-        <CardHeader className="relative gap-4 p-4 sm:p-6">
-          {showShareLink ? (
+        {showScreenshotHero ? (
+          <div
+            className={`relative -mt-4 w-full shrink-0 overflow-hidden bg-muted/45 ${cardHeroHeightClass}`}
+          >
+            <div className="absolute inset-0 z-0">
+              {hasPreviewScreenshots ? (
+                <div className="flex h-full w-full divide-x divide-foreground/15">
+                  {previewScreenshotUrls.map((url, index) => (
+                    <div key={url} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={
+                          previewScreenshotUrls.length === 1
+                            ? `${displayName} screenshot preview`
+                            : `${displayName} screenshot preview ${index + 1}`
+                        }
+                        className="h-full w-full object-cover object-top"
+                        loading="lazy"
+                      />
+                      {previewScreenshotUrls.length > 1 && index < previewScreenshotUrls.length - 1 ? (
+                        <div
+                          className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-6 bg-gradient-to-l from-background/55 to-transparent sm:w-10"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <HeroAmbientBackground
+                  bundleIdentifier={app.bundleIdentifier}
+                  iconUrl={displayIconUrl}
+                  name={displayName}
+                />
+              )}
+            </div>
+
+            {!hasPreviewScreenshots ? (
+              <div className="pointer-events-none absolute inset-0 z-[1] grid place-items-center">
+                <div className="rounded-2xl bg-card/95 p-3 shadow-lg ring-1 ring-foreground/12">
+                  <AppIcon
+                    bundleIdentifier={app.bundleIdentifier}
+                    iconUrl={displayIconUrl}
+                    name={displayName}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            <CardHeroBottomFade />
+
+            <div className="absolute inset-x-0 bottom-0 z-[3] flex flex-wrap gap-1.5 p-3 pt-5 sm:p-4 sm:pt-6">
+              <Badge className={overlayBadgeClassName}>{fileSize ?? "Size unknown"}</Badge>
+              <Badge className={overlayBadgeClassName} variant="secondary">
+                {app.downloadOptions.length} {app.downloadOptions.length === 1 ? "source" : "sources"}
+              </Badge>
+              {app.minOSVersion ? (
+                <Badge className={overlayBadgeClassName} variant="outline">
+                  iOS {app.minOSVersion}+
+                </Badge>
+              ) : null}
+              {app.latestVersion ? (
+                <Badge className={overlayBadgeClassName} variant="outline">
+                  v{app.latestVersion}
+                </Badge>
+              ) : null}
+              {hasPreviewScreenshots && moreScreenshotCount > 0 ? (
+                <Badge className={overlayBadgeClassName} variant="outline">
+                  +{moreScreenshotCount} more
+                </Badge>
+              ) : null}
+            </div>
+            {showShareLink ? (
+              <Button
+                asChild
+                className="absolute right-3 top-3 z-[4] h-9 w-9 shrink-0 rounded-full border-0 bg-card/92 px-0 shadow-sm ring-1 ring-foreground/12 sm:right-4 sm:top-4"
+                variant="outline"
+                size="sm"
+              >
+                <a
+                  href={appPagePath}
+                  aria-label={`Open share page for ${displayName}`}
+                  rel="noreferrer"
+                  target="_blank"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <ArrowUpRightIcon className="size-4" />
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <CardHeader className={`relative gap-4 p-4 sm:p-6 ${showScreenshotHero ? "!gap-3 pt-4 sm:pt-5" : ""}`}>
+          {!showScreenshotHero && showShareLink ? (
             <Button
               asChild
               className="absolute right-4 top-4 h-9 w-9 shrink-0 rounded-full px-0 sm:right-6 sm:top-6"
@@ -389,48 +583,72 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
               </a>
             </Button>
           ) : null}
-          <div className={showShareLink ? "flex min-w-0 gap-4 pr-12" : "flex min-w-0 gap-4"}>
-            <AppIcon bundleIdentifier={app.bundleIdentifier} iconUrl={displayIconUrl} name={displayName} />
-            <div className="min-w-0 flex-1 space-y-3 overflow-hidden">
+          {showScreenshotHero ? (
+            <div className="min-w-0 space-y-3">
               <div className="min-w-0">
                 <CardTitle className="line-clamp-2 break-words text-xl leading-tight">{displayName}</CardTitle>
                 <p className="mt-1 truncate text-sm text-muted-foreground">{displayDeveloper}</p>
               </div>
-              <div className="space-y-2 overflow-hidden">
+              {(primaryGenreName || rating) ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <Badge className={appBadgeClassName}>{fileSize ?? "Size unknown"}</Badge>
-                  <Badge className={appBadgeClassName} variant="secondary">
-                    {app.downloadOptions.length} {app.downloadOptions.length === 1 ? "source" : "sources"}
-                  </Badge>
-                  {app.minOSVersion ? (
-                    <Badge className={appBadgeClassName} variant="outline">
-                      iOS {app.minOSVersion}+
+                  {primaryGenreName ? (
+                    <Badge className={appBadgeClassName} variant="secondary">
+                      <span className="truncate">{primaryGenreName}</span>
                     </Badge>
                   ) : null}
-                  {app.latestVersion ? (
-                    <Badge className={appBadgeClassName} variant="outline">
-                      v{app.latestVersion}
+                  {rating ? (
+                    <Badge className={appMetricBadgeClassName} variant="outline">
+                      <StarIcon className="size-3 shrink-0" weight="fill" />
+                      <span className="truncate">{rating}</span>
                     </Badge>
                   ) : null}
                 </div>
-                {(primaryGenreName || rating) ? (
+              ) : null}
+            </div>
+          ) : (
+            <div className={showShareLink ? "flex min-w-0 gap-4 pr-12" : "flex min-w-0 gap-4"}>
+              <AppIcon bundleIdentifier={app.bundleIdentifier} iconUrl={displayIconUrl} name={displayName} />
+              <div className="min-w-0 flex-1 space-y-3 overflow-hidden">
+                <div className="min-w-0">
+                  <CardTitle className="line-clamp-2 break-words text-xl leading-tight">{displayName}</CardTitle>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">{displayDeveloper}</p>
+                </div>
+                <div className="space-y-2 overflow-hidden">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    {primaryGenreName ? (
-                      <Badge className={appBadgeClassName} variant="secondary">
-                        <span className="truncate">{primaryGenreName}</span>
+                    <Badge className={appBadgeClassName}>{fileSize ?? "Size unknown"}</Badge>
+                    <Badge className={appBadgeClassName} variant="secondary">
+                      {app.downloadOptions.length} {app.downloadOptions.length === 1 ? "source" : "sources"}
+                    </Badge>
+                    {app.minOSVersion ? (
+                      <Badge className={appBadgeClassName} variant="outline">
+                        iOS {app.minOSVersion}+
                       </Badge>
                     ) : null}
-                    {rating ? (
-                      <Badge className={appMetricBadgeClassName} variant="outline">
-                        <StarIcon className="size-3 shrink-0" weight="fill" />
-                        <span className="truncate">{rating}</span>
+                    {app.latestVersion ? (
+                      <Badge className={appBadgeClassName} variant="outline">
+                        v{app.latestVersion}
                       </Badge>
                     ) : null}
                   </div>
-                ) : null}
+                  {(primaryGenreName || rating) ? (
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      {primaryGenreName ? (
+                        <Badge className={appBadgeClassName} variant="secondary">
+                          <span className="truncate">{primaryGenreName}</span>
+                        </Badge>
+                      ) : null}
+                      {rating ? (
+                        <Badge className={appMetricBadgeClassName} variant="outline">
+                          <StarIcon className="size-3 shrink-0" weight="fill" />
+                          <span className="truncate">{rating}</span>
+                        </Badge>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardHeader>
 
         <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0 sm:p-6 sm:pt-0">
@@ -497,10 +715,11 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
           )}
         </CardFooter>
       </Card>
+      </div>
 
       {isDescriptionOpen ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center overflow-hidden overscroll-contain bg-background/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center overflow-hidden overscroll-contain bg-background/90 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby={`${app.id}-description-title`}
@@ -533,7 +752,7 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
 
       {isDownloadPickerOpen ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center overflow-hidden overscroll-contain bg-background/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center overflow-hidden overscroll-contain bg-background/90 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby={`${app.id}-download-title`}
@@ -593,4 +812,4 @@ export function AppCard({ app, showShareLink = true }: { app: AppDto; showShareL
       ) : null}
     </>
   );
-}
+});
