@@ -6,6 +6,8 @@ export type SourceDefinition = {
   subtitle: string | null;
   url: string;
   website: string | null;
+  kind?: "altstore" | "github-tree";
+  treeFile?: string;
 };
 
 export const SOURCES: SourceDefinition[] = [
@@ -393,6 +395,15 @@ export const SOURCES: SourceDefinition[] = [
     subtitle: "Validated AltStore-compatible source",
     url: "https://xitrix.github.io/iTorrent/AltStore.json",
     website: "https://xitrix.github.io"
+  },
+  {
+    id: "json-ipa-repos",
+    name: "JSON IPA Repos",
+    subtitle: "Aggregated AltStore-compatible JSON repositories",
+    url: "https://api.github.com/repos/j3qq4h7h2v/json-ipa-repos/git/trees/main",
+    website: "https://github.com/j3qq4h7h2v/json-ipa-repos",
+    kind: "github-tree",
+    treeFile: "json-ipa-repos.json"
   }
 ];
 
