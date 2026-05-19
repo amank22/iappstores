@@ -5,12 +5,12 @@ import "react-photo-view/dist/react-photo-view.css";
 import { Noto_Serif, Manrope, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const googleTagManagerId = "GTM-T8XP9PB3";
-const googleTagManagerScript = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${googleTagManagerId}');`;
+const googleAnalyticsId = "G-VSPK9T0VT9";
+const googleAnalyticsScript = `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+
+gtag('config', '${googleAnalyticsId}');`;
 
 const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
 
@@ -76,19 +76,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("dark font-serif", notoSerif.variable, manropeHeading.variable, "font-mono", jetbrainsMono.variable)}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: googleTagManagerScript }} />
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`} />
+        <script dangerouslySetInnerHTML={{ __html: googleAnalyticsScript }} />
       </head>
-      <body>
-        <noscript>
-          <iframe
-            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerId}`}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          />
-        </noscript>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
