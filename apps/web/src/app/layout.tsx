@@ -3,14 +3,10 @@ import { getSiteUrl, siteDescription } from "@/lib/site";
 import "./globals.css";
 import "react-photo-view/dist/react-photo-view.css";
 import { Noto_Serif, Manrope, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import { cn } from "@/lib/utils";
 
 const googleAnalyticsId = "G-VSPK9T0VT9";
-const googleAnalyticsScript = `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-
-gtag('config', '${googleAnalyticsId}');`;
 
 const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
 
@@ -75,11 +71,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("dark font-serif", notoSerif.variable, manropeHeading.variable, "font-mono", jetbrainsMono.variable)}>
-      <head>
-        <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`} />
-        <script dangerouslySetInnerHTML={{ __html: googleAnalyticsScript }} />
-      </head>
-      <body>{children}</body>
+      <body>
+        {/* beforeInteractive inlines early in the document HTML so GA's tester sees the tag. */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
+          strategy="beforeInteractive"
+        />
+        <Script id="google-analytics" strategy="beforeInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${googleAnalyticsId}');`}
+        </Script>
+        {children}
+      </body>
     </html>
   );
 }
