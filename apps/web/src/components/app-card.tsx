@@ -341,34 +341,17 @@ const cardHeroHeightClass = "h-[13rem] sm:h-[15rem]";
 
 function HeroAmbientBackground({
   bundleIdentifier,
-  iconUrl,
   name
 }: {
   bundleIdentifier: string | null;
-  iconUrl: string | null;
   name: string;
 }) {
-  const [hasFailed, setHasFailed] = useState(false);
-
-  useEffect(() => {
-    setHasFailed(false);
-  }, [iconUrl]);
+  const fallbackStyle = getHueFallbackBackground(bundleIdentifier, name);
 
   return (
     <div className="absolute inset-0 overflow-hidden" aria-hidden>
-      <div className="absolute inset-0 opacity-[0.96]" style={getHueFallbackBackground(bundleIdentifier, name)} />
-      {iconUrl && !hasFailed ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={iconUrl}
-            alt=""
-            className="absolute left-1/2 top-1/2 min-h-[115%] min-w-[115%] -translate-x-1/2 -translate-y-1/2 object-cover opacity-[0.44] blur-lg saturate-[1.08]"
-            loading="lazy"
-            onError={() => setHasFailed(true)}
-          />
-        </>
-      ) : null}
+      <div className="absolute inset-0 opacity-[0.96]" style={fallbackStyle} />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.24),transparent_38%,rgba(0,0,0,0.2)_74%,transparent)]" />
       <div className="absolute inset-0 bg-gradient-to-b from-card/50 via-card/10 to-card/60" />
     </div>
   );
@@ -502,7 +485,6 @@ export const AppCard = memo(function AppCard({
               ) : (
                 <HeroAmbientBackground
                   bundleIdentifier={app.bundleIdentifier}
-                  iconUrl={displayIconUrl}
                   name={displayName}
                 />
               )}

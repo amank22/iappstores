@@ -1,0 +1,32 @@
+# iappstores
+
+> iappstores is a public browser for AltStore and SideStore-compatible iOS app repositories, direct IPA download metadata, repository notes, and App Store context when available.
+
+Important notes:
+
+- iappstores indexes third-party repository metadata and links to original source download URLs. It does not host IPA files, verify authenticity, or review apps for malware or privacy impact.
+- Repository notes are preserved because they often describe tweaked, modded, patched, or subscription-unlocked builds. Treat those notes as source-provided claims, not official App Store descriptions.
+- App Store metadata, when available, is supplemental context from Apple's public lookup API and should not replace repository-specific IPA details.
+- Duplicate bundle identifiers may be grouped into one app page with multiple source download options.
+
+## Primary Pages
+
+- [Home and app browser](https://iappstores.com/): Search and filter indexed IPA repository listings by app name, bundle ID, developer, source, category, and minimum iOS version.
+- [Sitemap](https://iappstores.com/sitemap.xml): Discover public app detail pages generated from indexed bundle identifiers.
+- [Robots](https://iappstores.com/robots.txt): Crawling guidance for the site.
+
+## API
+
+- [Sources API](https://iappstores.com/api/sources): JSON list of indexed repository sources.
+- [Apps API](https://iappstores.com/api/apps): Paginated JSON list of grouped apps across sources. Supports filters such as `sourceId`, `category`, `iosVersion`, `iosVersionOperator`, `page`, `pageSize`, and `includeAppStore`.
+- [Search API](https://iappstores.com/api/search?q=delta): Paginated JSON search across app names, bundle IDs, developers, subtitles, descriptions, and versions.
+- [Sitemap Apps API](https://iappstores.com/api/sitemap/apps): Compact JSON list of app ids, bundle identifiers, and version dates used to build the sitemap.
+
+## URL Patterns
+
+- [App detail page](https://iappstores.com/apps/com.example.bundle): Replace `com.example.bundle` with a bundle identifier or encoded app id to view a shareable app page.
+- [Source-filtered app API](https://iappstores.com/api/sources/fastsign-altstore/apps): Replace `fastsign-altstore` with a source id from the Sources API to list apps from one repository.
+
+## Optional
+
+- [llms.txt specification](https://llmstxt.org/): Informal proposal for the `/llms.txt` Markdown format.

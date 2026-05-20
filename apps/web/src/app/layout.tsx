@@ -2,22 +2,22 @@ import type { Metadata } from "next";
 import { getSiteUrl, siteDescription } from "@/lib/site";
 import "./globals.css";
 import "react-photo-view/dist/react-photo-view.css";
-import { Noto_Serif, Manrope, JetBrains_Mono } from "next/font/google";
+import { Manrope } from "next/font/google";
 import Script from "next/script";
 import { cn } from "@/lib/utils";
 
 const googleAnalyticsId = "G-VSPK9T0VT9";
 
-const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
-
-const manropeHeading = Manrope({subsets:['latin'],variable:'--font-heading'});
-
-const notoSerif = Noto_Serif({subsets:['latin'],variable:'--font-serif'});
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "iappstores - IPA Downloads, Tweaked Apps, and AltStore Repositories",
+    default: "iappstores - IPA Downloads & AltStore Repositories",
     template: "%s | iappstores"
   },
   description: siteDescription,
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     "iOS app repositories"
   ],
   openGraph: {
-    title: "iappstores - IPA Downloads and Tweaked iOS Apps",
+    title: "iappstores - IPA Downloads & AltStore Repositories",
     description: siteDescription,
     url: "/",
     siteName: "iappstores",
@@ -48,18 +48,27 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "iappstores - IPA Downloads and Tweaked iOS Apps",
+    title: "iappstores - IPA Downloads & AltStore Repositories",
     description: siteDescription,
     images: ["/og.svg"]
   },
   icons: {
     icon: [
       {
+        url: "/favicon.ico",
+        sizes: "64x64"
+      },
+      {
+        url: "/favicon.png",
+        type: "image/png",
+        sizes: "64x64"
+      },
+      {
         url: "/favicon.svg",
         type: "image/svg+xml"
       }
     ],
-    shortcut: "/favicon.svg",
+    shortcut: "/favicon.ico",
     apple: "/logo.svg"
   }
 };
@@ -70,14 +79,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("dark font-serif", notoSerif.variable, manropeHeading.variable, "font-mono", jetbrainsMono.variable)}>
+    <html lang="en" className={cn("dark", manrope.variable)}>
       <body>
-        {/* beforeInteractive inlines early in the document HTML so GA's tester sees the tag. */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
-        <Script id="google-analytics" strategy="beforeInteractive">
+        <Script id="google-analytics" strategy="afterInteractive">
           {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());

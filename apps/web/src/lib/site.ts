@@ -1,5 +1,5 @@
 export const siteDescription =
-  "Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked, modded, and patched iOS apps with App Store context.";
+  "Search AltStore and SideStore IPA repositories, compare direct download options, source notes, iOS compatibility, and App Store context for tweaked iOS apps.";
 
 export function getSiteUrl(): string {
   const rawUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
