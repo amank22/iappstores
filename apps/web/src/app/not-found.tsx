@@ -20,7 +20,7 @@ export default function NotFound() {
           <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
             <div className="space-y-6">
               <div className="flex flex-wrap items-center gap-3">
-                <img src="/logo.svg" alt="" className="h-14 w-14 rounded-lg ring-1 ring-foreground/10" />
+                <img src="/logo.svg" alt="iappstores logo" className="h-14 w-14 rounded-lg ring-1 ring-foreground/10" />
                 <Badge variant="secondary">404 - App route not found</Badge>
               </div>
 

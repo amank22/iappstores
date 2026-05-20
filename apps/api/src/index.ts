@@ -65,6 +65,10 @@ app.use(
   })
 );
 app.use(express.json({ limit: "16kb" }));
+app.use("/api", (_req, res, next) => {
+  res.setHeader("X-Robots-Tag", "noindex, follow");
+  next();
+});
 
 app.get("/health", (_req, res) => {
   res.json({
