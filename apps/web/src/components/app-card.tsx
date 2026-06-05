@@ -220,115 +220,114 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
   return (
     <>
       <div className="space-y-5 text-sm leading-6 text-muted-foreground">
-      {hasAppStoreDetails ? (
+        {hasAppStoreDetails ? (
+          <section className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
+            <h4 className="mb-3 text-sm font-semibold text-foreground">App details</h4>
+            <dl className="grid gap-3 text-xs sm:grid-cols-2">
+              {primaryGenreName ? (
+                <div>
+                  <dt className="font-semibold text-foreground">Category</dt>
+                  <dd>{primaryGenreName}</dd>
+                </div>
+              ) : null}
+              {rating ? (
+                <div>
+                  <dt className="font-semibold text-foreground">Rating</dt>
+                  <dd className="inline-flex items-center gap-1">
+                    <StarIcon className="size-3" weight="fill" />
+                    {rating}
+                  </dd>
+                </div>
+              ) : null}
+              {appStore?.version ? (
+                <div>
+                  <dt className="font-semibold text-foreground">App Store version</dt>
+                  <dd>{appStore.version}</dd>
+                </div>
+              ) : null}
+              {appStore?.minimumOsVersion ? (
+                <div>
+                  <dt className="font-semibold text-foreground">App Store iOS</dt>
+                  <dd>{appStore.minimumOsVersion}+</dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
+        ) : null}
+
         <section className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
-          <h4 className="mb-3 text-sm font-semibold text-foreground">App details</h4>
-          <dl className="grid gap-3 text-xs sm:grid-cols-2">
-            {primaryGenreName ? (
+          <h4 className="mb-3 text-sm font-semibold text-foreground">IPA repository details</h4>
+          <dl className="grid gap-3 text-xs">
+            <div>
+              <dt className="font-semibold text-foreground">Repository title</dt>
+              <dd className="break-words">{app.name}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-foreground">Source</dt>
+              <dd>{app.sourceName}</dd>
+            </div>
+            {app.bundleIdentifier ? (
               <div>
-                <dt className="font-semibold text-foreground">Category</dt>
-                <dd>{primaryGenreName}</dd>
+                <dt className="font-semibold text-foreground">Bundle ID</dt>
+                <dd className="break-all">{app.bundleIdentifier}</dd>
               </div>
             ) : null}
-            {rating ? (
+            {app.latestVersion ? (
               <div>
-                <dt className="font-semibold text-foreground">Rating</dt>
-                <dd className="inline-flex items-center gap-1">
-                  <StarIcon className="size-3" weight="fill" />
-                  {rating}
-                </dd>
+                <dt className="font-semibold text-foreground">IPA version</dt>
+                <dd>{app.latestVersion}</dd>
               </div>
             ) : null}
-            {appStore?.version ? (
+            {app.minOSVersion ? (
               <div>
-                <dt className="font-semibold text-foreground">App Store version</dt>
-                <dd>{appStore.version}</dd>
-              </div>
-            ) : null}
-            {appStore?.minimumOsVersion ? (
-              <div>
-                <dt className="font-semibold text-foreground">App Store iOS</dt>
-                <dd>{appStore.minimumOsVersion}+</dd>
+                <dt className="font-semibold text-foreground">IPA iOS requirement</dt>
+                <dd>{app.minOSVersion}+</dd>
               </div>
             ) : null}
           </dl>
         </section>
-      ) : null}
 
-      <section className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
-        <h4 className="mb-3 text-sm font-semibold text-foreground">IPA repository details</h4>
-        <dl className="grid gap-3 text-xs">
-          <div>
-            <dt className="font-semibold text-foreground">Repository title</dt>
-            <dd className="break-words">{app.name}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold text-foreground">Source</dt>
-            <dd>{app.sourceName}</dd>
-          </div>
-          {app.bundleIdentifier ? (
-            <div>
-              <dt className="font-semibold text-foreground">Bundle ID</dt>
-              <dd className="break-all">{app.bundleIdentifier}</dd>
-            </div>
-          ) : null}
-          {app.latestVersion ? (
-            <div>
-              <dt className="font-semibold text-foreground">IPA version</dt>
-              <dd>{app.latestVersion}</dd>
-            </div>
-          ) : null}
-          {app.minOSVersion ? (
-            <div>
-              <dt className="font-semibold text-foreground">IPA iOS requirement</dt>
-              <dd>{app.minOSVersion}+</dd>
-            </div>
-          ) : null}
-        </dl>
-      </section>
+        {screenshotUrls.length > 0 ? (
+          <section>
+            <h4 className="mb-3 text-sm font-semibold text-foreground">Screenshots</h4>
+            <PhotoProvider>
+              <div className="-mx-1 flex gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2">
+                {screenshotUrls.map((screenshotUrl, index) => (
+                  <PhotoView key={screenshotUrl} src={screenshotUrl}>
+                    <button className="shrink-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30" type="button">
+                      {/* External App Store/repository screenshots are remote URLs, so img avoids domain config. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={screenshotUrl}
+                        alt={`${displayName} screenshot ${index + 1}`}
+                        className="h-72 w-36 rounded-lg object-cover ring-1 ring-foreground/10 sm:h-80 sm:w-40"
+                        loading="lazy"
+                      />
+                    </button>
+                  </PhotoView>
+                ))}
+              </div>
+            </PhotoProvider>
+          </section>
+        ) : null}
 
-      {screenshotUrls.length > 0 ? (
-        <section>
-          <h4 className="mb-3 text-sm font-semibold text-foreground">Screenshots</h4>
-          <PhotoProvider>
-            <div className="-mx-1 flex gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2">
-              {screenshotUrls.map((screenshotUrl, index) => (
-                <PhotoView key={screenshotUrl} src={screenshotUrl}>
-                  <button className="shrink-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30" type="button">
-                    {/* External App Store/repository screenshots are remote URLs, so img avoids domain config. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={screenshotUrl}
-                      alt={`${displayName} screenshot ${index + 1}`}
-                      className="h-72 w-36 rounded-lg object-cover ring-1 ring-foreground/10 sm:h-80 sm:w-40"
-                      loading="lazy"
-                    />
-                  </button>
-                </PhotoView>
-              ))}
+        {appStoreDescription ? (
+          <section>
+            <h4 className="mb-2 text-sm font-semibold text-foreground">App Store description</h4>
+            <p className="whitespace-pre-wrap break-words">{appStoreDescription}</p>
+          </section>
+        ) : null}
+        {hasRepositoryNotes ? (
+          <section>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <h4 className="text-sm font-semibold text-foreground">Repository notes</h4>
             </div>
-          </PhotoProvider>
-        </section>
-      ) : null}
-
-      {appStoreDescription ? (
-        <section>
-          <h4 className="mb-2 text-sm font-semibold text-foreground">App Store description</h4>
-          <p className="whitespace-pre-wrap">{appStoreDescription}</p>
-        </section>
-      ) : null}
-      {hasRepositoryNotes ? (
-        <section>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <h4 className="text-sm font-semibold text-foreground">Repository notes</h4>
-          </div>
-          {repositoryNotesTranslateUrl ? <InlineTranslation text={repositoryNotes} /> : null}
-          {app.name !== displayName ? <p className="mb-3 font-medium text-foreground">{app.name}</p> : null}
-          <p className="whitespace-pre-wrap">{repositoryNotes}</p>
-        </section>
-      ) : null}
+            {repositoryNotesTranslateUrl ? <InlineTranslation text={repositoryNotes} /> : null}
+            {app.name !== displayName ? <p className="mb-3 font-medium text-foreground">{app.name}</p> : null}
+            <p className="whitespace-pre-wrap break-words">{repositoryNotes}</p>
+          </section>
+        ) : null}
       </div>
-
     </>
   );
 }
@@ -721,7 +720,7 @@ export const AppCard = memo(function AppCard({
               </div>
             </div>
 
-            <div className="mt-5 min-h-0 overflow-y-auto overscroll-contain pr-1">
+            <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
               <AppDetailsContent app={app} />
             </div>
 
