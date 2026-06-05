@@ -2,6 +2,7 @@ import {
   AppListResponseSchema,
   AppResponseSchema,
   AppsResponseSchema,
+  DevelopersResponseSchema,
   SearchResponseSchema,
   SitemapAppsResponseSchema,
   SourcesResponseSchema,
@@ -10,6 +11,8 @@ import {
   type AppListResponse,
   type AppResponse,
   type AppsResponse,
+  type DeveloperDto,
+  type DevelopersResponse,
   type IosVersionOperator,
   type SearchResponse,
   type SitemapAppsResponse,
@@ -98,6 +101,11 @@ export async function fetchSources(): Promise<SourceDto[]> {
   return response.sources;
 }
 
+export async function fetchDevelopers(): Promise<DeveloperDto[]> {
+  const response: DevelopersResponse = await request("/api/developers", DevelopersResponseSchema);
+  return response.developers;
+}
+
 export async function fetchSourceApps(sourceId: string): Promise<AppsResponse> {
   return request(`/api/sources/${encodeURIComponent(sourceId)}/apps`, AppsResponseSchema);
 }
@@ -130,6 +138,11 @@ function toQueryString(options: AppQueryOptions = {}): string {
 export async function fetchApps(options: AppQueryOptions = {}): Promise<AppListResponse> {
   const query = toQueryString(options);
   return request(`/api/apps${query ? `?${query}` : ""}`, AppListResponseSchema);
+}
+
+export async function fetchDeveloperApps(developerSlug: string, options: AppQueryOptions = {}): Promise<AppListResponse> {
+  const query = toQueryString(options);
+  return request(`/api/developers/${encodeURIComponent(developerSlug)}/apps${query ? `?${query}` : ""}`, AppListResponseSchema);
 }
 
 export async function fetchSitemapApps(): Promise<SitemapAppsResponse> {
