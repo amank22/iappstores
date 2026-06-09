@@ -3,6 +3,7 @@ import express from "express";
 import {
   AppIdParamSchema,
   BrowseAppsQuerySchema,
+  DeveloperSlugParamSchema,
   SearchAppsQuerySchema,
   SourceIdParamSchema,
   TranslationRequestSchema,
@@ -10,6 +11,8 @@ import {
   type AppResponse,
   type AppListResponse,
   type AppsResponse,
+  type DeveloperDto,
+  type DevelopersResponse,
   type SearchResponse,
   type SitemapAppsResponse,
   type SourcesResponse,
@@ -59,6 +62,48 @@ function attachAppStoreMetadata(apps: AppDto[], includeAppStore: boolean): AppDt
   return includeAppStore ? enrichAppsWithCachedAppStoreMetadata(apps) : apps;
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function getDeveloperName(app: AppDto): string | null {
+  return app.appStore?.developerName ?? app.developerName;
+}
+
+function getDevelopers(apps: AppDto[]): DeveloperDto[] {
+  const developers = new Map<string, { name: string; apps: AppDto[] }>();
+
+  for (const app of apps) {
+    const name = getDeveloperName(app);
+    if (!name) {
+      continue;
+    }
+
+    const slug = slugify(name);
+    if (!slug) {
+      continue;
+    }
+
+    const developer = developers.get(slug) ?? { name, apps: [] };
+    developer.apps.push(app);
+    developers.set(slug, developer);
+  }
+
+  return [...developers.entries()]
+    .map(([slug, developer]) => ({
+      slug,
+      name: developer.name,
+      appCount: developer.apps.length,
+      categories: [...new Set(developer.apps.map((app) => app.category))].sort(),
+      sourceNames: [...new Set(developer.apps.flatMap((app) => app.downloadOptions.map((option) => option.sourceName)))].sort()
+    }))
+    .sort((a, b) => b.appCount - a.appCount || a.name.localeCompare(b.name));
+}
+
 app.use(
   cors({
     origin: frontendOrigin
@@ -82,6 +127,20 @@ app.get("/api/sources", async (_req, res) => {
     sources: SOURCES.map((source) => sourceToDto(source))
   };
   res.json(body);
+});
+
+app.get("/api/developers", async (_req, res) => {
+  try {
+    const groupedApps = enrichAppsWithCachedAppStoreMetadata(await getGroupedAppsForSources(SOURCES));
+    const body: DevelopersResponse = {
+      developers: getDevelopers(groupedApps)
+    };
+    res.json(body);
+  } catch (error) {
+    sendError(res, 502, "developers_fetch_failed", "Could not build developer list.", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
 app.post("/api/translate", async (req, res) => {
@@ -228,6 +287,49 @@ app.get("/api/sources/:sourceId/apps", async (req, res) => {
   } catch (error) {
     sendError(res, 502, "source_fetch_failed", "Could not fetch or parse the source repository.", {
       sourceId: source.id,
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+app.get("/api/developers/:developerSlug/apps", async (req, res) => {
+  const params = DeveloperSlugParamSchema.safeParse(req.params);
+  if (!params.success) {
+    sendError(res, 400, "invalid_developer_slug", "Developer slug is required.", params.error.flatten());
+    return;
+  }
+
+  const parsedQuery = BrowseAppsQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    sendError(res, 400, "invalid_apps_query", "Apps query parameters are invalid.", parsedQuery.error.flatten());
+    return;
+  }
+
+  try {
+    const groupedApps = enrichAppsWithCachedAppStoreMetadata(await getGroupedAppsForSources(SOURCES));
+    const developer = getDevelopers(groupedApps).find((candidate) => candidate.slug === params.data.developerSlug);
+
+    if (!developer) {
+      sendError(res, 404, "developer_not_found", `Unknown developer "${params.data.developerSlug}".`);
+      return;
+    }
+
+    const developerApps = groupedApps.filter((app) => {
+      const name = getDeveloperName(app);
+      return name ? slugify(name) === developer.slug : false;
+    });
+    const categorizedApps = filterAppsByCategory(developerApps, parsedQuery.data.category);
+    const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
+    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
+    const body: AppListResponse = {
+      apps: pagedApps.apps,
+      pagination: pagedApps.pagination,
+      categories: getCategoryFacets(developerApps)
+    };
+    res.json(body);
+  } catch (error) {
+    sendError(res, 502, "developer_apps_fetch_failed", "Could not fetch developer apps.", {
+      developerSlug: params.data.developerSlug,
       message: error instanceof Error ? error.message : String(error)
     });
   }

@@ -4,6 +4,7 @@ dist
 out
 coverage
 .data
+.DS_Store
 *.tsbuildinfo
 .env
 .env.*
