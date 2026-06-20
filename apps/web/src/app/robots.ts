@@ -5,7 +5,8 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: "/"
+      allow: "/",
+      disallow: ["/api/", "/search?", "/*?sort=", "/*?pageSize=", "/*?includeAppStore="]
     },
     sitemap: getAbsoluteUrl("/sitemap.xml"),
     host: getSiteUrl()

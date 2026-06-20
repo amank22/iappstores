@@ -5,36 +5,24 @@ import type { AppDto } from "@iappstores/contracts";
 import { AppCard, AppDetailsContent } from "@/components/app-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchApp } from "@/lib/api";
+import { fetchApp, fetchApps } from "@/lib/api";
 import { getAbsoluteUrl } from "@/lib/site";
+import {
+  CATEGORY_LABELS,
+  getAppDescription,
+  getAppDisplayName,
+  getAppImage,
+  getAppPath,
+  getAppUrl,
+  getDeveloperSlug,
+  getShareId
+} from "@/lib/seo";
 
 type AppPageProps = {
   params: Promise<{
     appId: string;
   }>;
 };
-
-function getDisplayName(app: AppDto): string {
-  return app.appStore?.name ?? app.name;
-}
-
-function getDescription(app: AppDto): string {
-  const description =
-    app.appStore?.description ??
-    app.description ??
-    `${getDisplayName(app)} IPA download from ${app.sourceName}. View tweaked, modded, or patched iOS app details and download sources.`;
-
-  const normalized = description.replace(/\s+/g, " ").trim();
-  return normalized.length > 158 ? `${normalized.slice(0, 155)}...` : normalized;
-}
-
-function getImage(app: AppDto): string {
-  return app.appStore?.artworkUrl512 ?? app.appStore?.artworkUrl100 ?? app.iconUrl ?? "/og.svg";
-}
-
-function getShareId(app: AppDto): string {
-  return app.bundleIdentifier ?? (app.id.startsWith("bundle:") ? app.id.slice("bundle:".length) : app.id);
-}
 
 async function getAppOrNotFound(appId: string): Promise<AppDto> {
   try {
@@ -48,13 +36,13 @@ async function getAppOrNotFound(appId: string): Promise<AppDto> {
 export async function generateMetadata({ params }: AppPageProps): Promise<Metadata> {
   const { appId } = await params;
   const app = await getAppOrNotFound(appId);
-  const name = getDisplayName(app);
-  const description = getDescription(app);
-  const image = getImage(app);
+  const name = getAppDisplayName(app);
+  const description = getAppDescription(app);
+  const image = getAppImage(app);
   const path = `/apps/${encodeURIComponent(getShareId(app))}`;
 
   return {
-    title: `${name} IPA Download`,
+    title: `${name} IPA Download for iPhone & iPad`,
     description,
     alternates: {
       canonical: path
@@ -86,11 +74,48 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
 export default async function AppPage({ params }: AppPageProps) {
   const { appId } = await params;
   const app = await getAppOrNotFound(appId);
-  const name = getDisplayName(app);
+  const relatedResponse = await fetchApps({ category: app.category, pageSize: 12 }).catch(() => null);
+  const relatedApps =
+    relatedResponse?.apps
+      .filter((candidate) => getShareId(candidate).toLowerCase() !== getShareId(app).toLowerCase())
+      .slice(0, 8) ?? [];
+  const name = getAppDisplayName(app);
   const shareUrl = getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`);
+  const developerName = app.appStore?.developerName ?? app.developerName;
+  const developerSlug = getDeveloperSlug(app);
+  const screenshot = app.appStore?.screenshotUrls[0] ?? app.appStore?.ipadScreenshotUrls[0] ?? app.screenshots[0] ?? null;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name,
+    applicationCategory: CATEGORY_LABELS[app.category],
+    operatingSystem: app.minOSVersion ? `iOS ${app.minOSVersion}+` : "iOS",
+    softwareVersion: app.latestVersion ?? app.appStore?.version ?? undefined,
+    description: getAppDescription(app, 500),
+    image: getAbsoluteUrl(getAppImage(app)),
+    screenshot: screenshot ?? undefined,
+    url: getAppUrl(app),
+    author: developerName
+      ? {
+          "@type": "Organization",
+          name: developerName
+        }
+      : undefined,
+    offers: {
+      "@type": "Offer",
+      price: app.appStore?.price ?? 0,
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock"
+    }
+  };
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button asChild variant="secondary">
@@ -107,6 +132,21 @@ export default async function AppPage({ params }: AppPageProps) {
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
             Direct IPA download details, repository notes, and App Store metadata for this iOS app.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/category/${app.category}`}>{CATEGORY_LABELS[app.category]}</Link>
+            </Button>
+            {app.sourceId !== "multiple" ? (
+              <Button asChild variant="outline">
+                <Link href={`/repository/${encodeURIComponent(app.sourceId)}`}>{app.sourceName}</Link>
+              </Button>
+            ) : null}
+            {developerName && developerSlug ? (
+              <Button asChild variant="outline">
+                <Link href={`/developer/${encodeURIComponent(developerSlug)}`}>{developerName}</Link>
+              </Button>
+            ) : null}
+          </div>
         </section>
 
         <AppCard app={app} showScreenshotHero={false} showShareLink={false} />
@@ -119,6 +159,22 @@ export default async function AppPage({ params }: AppPageProps) {
             <AppDetailsContent app={app} />
           </CardContent>
         </Card>
+
+        {relatedApps.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Similar apps</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-2">
+              {relatedApps.map((relatedApp) => (
+                <Link key={relatedApp.id} className="rounded-md p-2 text-sm hover:bg-muted/60" href={getAppPath(relatedApp)}>
+                  <span className="font-medium text-foreground">{getAppDisplayName(relatedApp)}</span>
+                  <span className="block text-xs text-muted-foreground">{relatedApp.sourceName}</span>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </main>
   );

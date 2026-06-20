@@ -43,7 +43,7 @@ export const SOURCES: SourceDefinition[] = [
     id: "sidelix",
     name: "Sidelix App Store",
     subtitle: "Validated AltStore-compatible source",
-    url: "https://apps.nabzclan.vip/repos/altstore.php",
+    url: "https://apps.sidelix.vip/repos/altstore.php",
     website: "https://apps.nabzclan.vip"
   },
   {

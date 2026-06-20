@@ -64,6 +64,10 @@ export const SourceIdParamSchema = z.object({
   sourceId: z.string().trim().min(1)
 });
 
+export const DeveloperSlugParamSchema = z.object({
+  developerSlug: z.string().trim().min(1)
+});
+
 export const AppIdParamSchema = z.object({
   appId: z.string().trim().min(1)
 });
@@ -102,6 +106,14 @@ export const SourceDtoSchema = z.object({
   url: z.string().url(),
   website: z.string().url().nullable(),
   appCount: z.number().int().nonnegative().optional()
+});
+
+export const DeveloperDtoSchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  appCount: z.number().int().nonnegative(),
+  categories: z.array(DerivedAppCategorySchema),
+  sourceNames: z.array(z.string())
 });
 
 export const AppDownloadOptionSchema = z.object({
@@ -189,6 +201,10 @@ export const SourcesResponseSchema = z.object({
   sources: z.array(SourceDtoSchema)
 });
 
+export const DevelopersResponseSchema = z.object({
+  developers: z.array(DeveloperDtoSchema)
+});
+
 export const AppsResponseSchema = z.object({
   source: SourceDtoSchema,
   apps: z.array(AppDtoSchema),
@@ -233,6 +249,7 @@ export const ApiErrorResponseSchema = z.object({
 });
 
 export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
+export type DeveloperSlugParam = z.infer<typeof DeveloperSlugParamSchema>;
 export type AppIdParam = z.infer<typeof AppIdParamSchema>;
 export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
 export type AppCategory = z.infer<typeof AppCategorySchema>;
@@ -241,6 +258,7 @@ export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
 export type BrowseAppsQuery = z.infer<typeof BrowseAppsQuerySchema>;
 export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
+export type DeveloperDto = z.infer<typeof DeveloperDtoSchema>;
 export type AppDownloadOption = z.infer<typeof AppDownloadOptionSchema>;
 export type AppStoreMetadata = z.infer<typeof AppStoreMetadataSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
@@ -248,6 +266,7 @@ export type Pagination = z.infer<typeof PaginationSchema>;
 export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;
 export type SitemapApp = z.infer<typeof SitemapAppSchema>;
 export type SourcesResponse = z.infer<typeof SourcesResponseSchema>;
+export type DevelopersResponse = z.infer<typeof DevelopersResponseSchema>;
 export type AppsResponse = z.infer<typeof AppsResponseSchema>;
 export type AppListResponse = z.infer<typeof AppListResponseSchema>;
 export type AppResponse = z.infer<typeof AppResponseSchema>;
