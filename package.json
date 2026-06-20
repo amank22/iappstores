@@ -22,7 +22,7 @@
     "validate:sources": "npm run build -w @iappstores/contracts && npm run validate:sources -w @iappstores/api -- ../../repolist.txt"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^9.2.3",
     "typescript": "^5.8.3"
   }
 }
