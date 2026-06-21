@@ -1,8 +1,9 @@
-import type { AppCategory, AppCategoryFacet, AppDto, IosVersionOperator, Pagination, SourceDto } from "@iappstores/contracts";
+import type { AppCategory, AppCategoryFacet, AppDto, AppSort, IosVersionOperator, Pagination, SourceDto } from "@iappstores/contracts";
 
 export const ALL_SOURCES = "all";
 export const HOME_PAGE_SIZE = 12;
 export const DEFAULT_IOS_OPERATOR: IosVersionOperator = "lte";
+export const DEFAULT_SORT: AppSort = "recent";
 export const HOME_EMPTY_PAGINATION: Pagination = {
   page: 1,
   pageSize: HOME_PAGE_SIZE,
@@ -23,6 +24,7 @@ export const HOME_EMPTY_CATEGORIES: AppCategoryFacet[] = [
 export type HomeUrlState = {
   selectedSourceId: string;
   selectedCategory: AppCategory;
+  sort: AppSort;
   iosVersion: string;
   iosVersionOperator: IosVersionOperator;
   query: string;
@@ -41,6 +43,7 @@ type SearchParamRecord = Record<string, string | string[] | undefined>;
 
 const APP_CATEGORIES = new Set<AppCategory>(["all", "recent", "games", "tools", "media", "education"]);
 const IOS_OPERATORS = new Set<IosVersionOperator>(["lte", "gte"]);
+const APP_SORTS = new Set<AppSort>(["recent", "name-asc", "name-desc"]);
 
 function getParam(params: URLSearchParams | SearchParamRecord, key: string): string | undefined {
   const value = params instanceof URLSearchParams ? params.get(key) ?? undefined : params[key];
@@ -50,10 +53,12 @@ function getParam(params: URLSearchParams | SearchParamRecord, key: string): str
 export function parseHomeUrlState(params: URLSearchParams | SearchParamRecord): HomeUrlState {
   const category = getParam(params, "category")?.trim();
   const iosOperator = getParam(params, "iosOperator")?.trim();
+  const sort = getParam(params, "sort")?.trim();
 
   return {
     selectedSourceId: getParam(params, "source")?.trim() || ALL_SOURCES,
     selectedCategory: category && APP_CATEGORIES.has(category as AppCategory) ? (category as AppCategory) : "all",
+    sort: sort && APP_SORTS.has(sort as AppSort) ? (sort as AppSort) : DEFAULT_SORT,
     iosVersion: getParam(params, "ios")?.trim() ?? "",
     iosVersionOperator:
       iosOperator && IOS_OPERATORS.has(iosOperator as IosVersionOperator)

@@ -6,7 +6,8 @@ import {
   groupAppsByBundleId,
   normalizeAltStoreRepo,
   paginateApps,
-  searchApps
+  searchApps,
+  sortApps
 } from "./normalizer.js";
 import type { SourceDefinition } from "./sources.js";
 
@@ -109,7 +110,7 @@ describe("normalizeAltStoreRepo", () => {
     );
 
     const games = filterAppsByCategory(apps, "games");
-    const page = paginateApps(apps, { category: "all", iosVersionOperator: "lte", page: 1, pageSize: 1 });
+    const page = paginateApps(apps, { category: "all", sort: "recent", iosVersionOperator: "lte", page: 1, pageSize: 1 });
 
     expect(games).toHaveLength(1);
     expect(page.apps).toHaveLength(1);
@@ -149,6 +150,7 @@ describe("normalizeAltStoreRepo", () => {
     expect(
       filterAppsByIosVersion(apps, {
         category: "all",
+        sort: "recent",
         iosVersion: "16",
         iosVersionOperator: "lte",
         page: 1,
@@ -158,6 +160,7 @@ describe("normalizeAltStoreRepo", () => {
     expect(
       filterAppsByIosVersion(apps, {
         category: "all",
+        sort: "recent",
         iosVersion: "16",
         iosVersionOperator: "gte",
         page: 1,
@@ -210,6 +213,46 @@ describe("normalizeAltStoreRepo", () => {
     });
     expect(grouped[0]?.downloadOptions.map((option) => option.sourceName)).toEqual(["Mirror Source", "FastSign Lite"]);
   });
+
+  it("sorts grouped apps by recency and name before pagination", () => {
+    const apps = normalizeAltStoreRepo(
+      {
+        apps: [
+          {
+            name: "beta",
+            bundleIdentifier: "com.example.beta",
+            versions: [{ version: "1.0.0", date: "2024-01-01" }]
+          },
+          {
+            name: "Alpha",
+            bundleIdentifier: "com.example.alpha",
+            versions: [{ version: "1.0.0", date: "2024-03-01" }]
+          },
+          {
+            name: "Charlie",
+            bundleIdentifier: "com.example.charlie",
+            versions: [{ version: "1.0.0", date: "2024-02-01" }]
+          }
+        ]
+      },
+      source
+    );
+    const grouped = groupAppsByBundleId(apps);
+
+    expect(sortApps(grouped, "recent").map((app) => app.name)).toEqual(["Alpha", "Charlie", "beta"]);
+    expect(sortApps(grouped, "name-asc").map((app) => app.name)).toEqual(["Alpha", "beta", "Charlie"]);
+    expect(sortApps(grouped, "name-desc").map((app) => app.name)).toEqual(["Charlie", "beta", "Alpha"]);
+
+    const sortedPage = paginateApps(sortApps(grouped, "name-asc"), {
+      category: "all",
+      sort: "name-asc",
+      iosVersionOperator: "lte",
+      page: 1,
+      pageSize: 2
+    });
+
+    expect(sortedPage.apps.map((app) => app.name)).toEqual(["Alpha", "beta"]);
+  });
 });
 
 describe("SearchAppsQuerySchema", () => {
@@ -220,6 +263,7 @@ describe("SearchAppsQuerySchema", () => {
       page: 1,
       pageSize: 24,
       category: "all",
+      sort: "recent",
       iosVersionOperator: "lte"
     });
   });

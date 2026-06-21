@@ -49,6 +49,7 @@ const QueryBooleanSchema = (defaultValue: boolean) =>
 export const AppCategorySchema = z.enum(["all", "recent", "games", "tools", "media", "education"]);
 export const DerivedAppCategorySchema = z.enum(["games", "tools", "media", "education"]);
 export const IosVersionOperatorSchema = z.enum(["lte", "gte"]);
+export const AppSortSchema = z.enum(["recent", "name-asc", "name-desc"]);
 export const IosVersionQuerySchema = z.preprocess((value) => {
   const raw = Array.isArray(value) ? value[0] : value;
 
@@ -78,11 +79,22 @@ export const TranslationRequestSchema = z.object({
   to: z.string().trim().toLowerCase().regex(/^[a-z]{2}$/).default("en")
 });
 
+export const DownloadQuerySchema = z.object({
+  appId: QueryStringSchema,
+  sourceId: QueryStringSchema
+});
+
+export const DownloadStatsQuerySchema = z.object({
+  type: z.enum(["popular", "problem-links"]).default("popular"),
+  limit: QueryPositiveIntegerSchema(20, 100)
+});
+
 export const BrowseAppsQuerySchema = z.object({
   sourceId: QueryStringSchema.optional(),
   page: QueryPositiveIntegerSchema(1, 10_000),
   pageSize: QueryPositiveIntegerSchema(24, 60),
   category: AppCategorySchema.default("all"),
+  sort: AppSortSchema.default("recent"),
   iosVersion: IosVersionQuerySchema,
   iosVersionOperator: IosVersionOperatorSchema.default("lte"),
   includeAppStore: QueryBooleanSchema(true)
@@ -94,6 +106,7 @@ export const SearchAppsQuerySchema = z.object({
   page: QueryPositiveIntegerSchema(1, 10_000),
   pageSize: QueryPositiveIntegerSchema(24, 60),
   category: AppCategorySchema.default("all"),
+  sort: AppSortSchema.default("recent"),
   iosVersion: IosVersionQuerySchema,
   iosVersionOperator: IosVersionOperatorSchema.default("lte"),
   includeAppStore: QueryBooleanSchema(true)
@@ -240,6 +253,38 @@ export const TranslationResponseSchema = z.object({
   to: z.string()
 });
 
+export const PopularDownloadStatsItemSchema = z.object({
+  appId: z.string(),
+  bundleIdentifier: z.string().nullable(),
+  appName: z.string(),
+  downloadCount: z.number().int().nonnegative(),
+  lastDownloadedAt: z.number().int().nonnegative().nullable()
+});
+
+export const ProblemDownloadLinkStatsItemSchema = z.object({
+  appId: z.string(),
+  bundleIdentifier: z.string().nullable(),
+  appName: z.string(),
+  sourceId: z.string(),
+  sourceName: z.string(),
+  downloadURL: z.string().url(),
+  failureCount: z.number().int().nonnegative(),
+  lastStatus: z.string(),
+  lastStatusCode: z.number().int().nullable(),
+  lastFailureAt: z.number().int().nonnegative().nullable()
+});
+
+export const DownloadStatsResponseSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("popular"),
+    items: z.array(PopularDownloadStatsItemSchema)
+  }),
+  z.object({
+    type: z.literal("problem-links"),
+    items: z.array(ProblemDownloadLinkStatsItemSchema)
+  })
+]);
+
 export const ApiErrorResponseSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -252,9 +297,12 @@ export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
 export type DeveloperSlugParam = z.infer<typeof DeveloperSlugParamSchema>;
 export type AppIdParam = z.infer<typeof AppIdParamSchema>;
 export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
+export type DownloadQuery = z.infer<typeof DownloadQuerySchema>;
+export type DownloadStatsQuery = z.infer<typeof DownloadStatsQuerySchema>;
 export type AppCategory = z.infer<typeof AppCategorySchema>;
 export type DerivedAppCategory = z.infer<typeof DerivedAppCategorySchema>;
 export type IosVersionOperator = z.infer<typeof IosVersionOperatorSchema>;
+export type AppSort = z.infer<typeof AppSortSchema>;
 export type BrowseAppsQuery = z.infer<typeof BrowseAppsQuerySchema>;
 export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
@@ -273,4 +321,7 @@ export type AppResponse = z.infer<typeof AppResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type SitemapAppsResponse = z.infer<typeof SitemapAppsResponseSchema>;
 export type TranslationResponse = z.infer<typeof TranslationResponseSchema>;
+export type PopularDownloadStatsItem = z.infer<typeof PopularDownloadStatsItemSchema>;
+export type ProblemDownloadLinkStatsItem = z.infer<typeof ProblemDownloadLinkStatsItemSchema>;
+export type DownloadStatsResponse = z.infer<typeof DownloadStatsResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;

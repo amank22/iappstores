@@ -15,7 +15,7 @@
     "validate:sources": "tsx scripts/validate-sources.ts"
   },
   "dependencies": {
-    "@iappstores/contracts": "0.1.0",
+    "@iappstores/contracts": "file:../../packages/contracts",
     "@vitalets/google-translate-api": "^9.2.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",

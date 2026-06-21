@@ -10,6 +10,7 @@ import {
   type AppCategory,
   type AppListResponse,
   type AppResponse,
+  type AppSort,
   type AppsResponse,
   type DeveloperDto,
   type DevelopersResponse,
@@ -24,6 +25,7 @@ import {
 export type AppQueryOptions = {
   sourceId?: string;
   category?: AppCategory;
+  sort?: AppSort;
   iosVersion?: string;
   iosVersionOperator?: IosVersionOperator;
   page?: number;
@@ -117,6 +119,9 @@ function toQueryString(options: AppQueryOptions = {}): string {
   }
   if (options.category && options.category !== "all") {
     params.set("category", options.category);
+  }
+  if (options.sort && options.sort !== "recent") {
+    params.set("sort", options.sort);
   }
   if (options.iosVersion) {
     params.set("iosVersion", options.iosVersion);

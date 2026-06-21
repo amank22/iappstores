@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { AppDto } from "@iappstores/contracts";
+import { AppDetailAnalytics } from "@/components/app-detail-analytics";
 import { AppCard, AppDetailsContent } from "@/components/app-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,6 +117,7 @@ export default async function AppPage({ params }: AppPageProps) {
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <AppDetailAnalytics appId={app.id} appName={name} bundleIdentifier={app.bundleIdentifier} />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button asChild variant="secondary">

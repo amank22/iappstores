@@ -2,6 +2,7 @@ import type {
   AppCategory,
   AppCategoryFacet,
   AppDownloadOption,
+  AppSort,
   AppDto,
   BrowseAppsQuery,
   DerivedAppCategory,
@@ -311,6 +312,21 @@ function sortGroupedApps(apps: AppDto[]): AppDto[] {
 
     return a.name.localeCompare(b.name);
   });
+}
+
+export function sortApps(apps: AppDto[], sort: AppSort): AppDto[] {
+  if (sort === "name-asc" || sort === "name-desc") {
+    return [...apps].sort((a, b) => {
+      const comparison = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      if (comparison !== 0) {
+        return sort === "name-asc" ? comparison : -comparison;
+      }
+
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  return sortGroupedApps(apps);
 }
 
 export function groupAppsByBundleId(apps: AppDto[]): AppDto[] {

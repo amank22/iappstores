@@ -4,6 +4,8 @@ import {
   AppIdParamSchema,
   BrowseAppsQuerySchema,
   DeveloperSlugParamSchema,
+  DownloadQuerySchema,
+  DownloadStatsQuerySchema,
   SearchAppsQuerySchema,
   SourceIdParamSchema,
   TranslationRequestSchema,
@@ -13,6 +15,7 @@ import {
   type AppsResponse,
   type DeveloperDto,
   type DevelopersResponse,
+  type DownloadStatsResponse,
   type SearchResponse,
   type SitemapAppsResponse,
   type SourcesResponse,
@@ -20,6 +23,15 @@ import {
 } from "@iappstores/contracts";
 import { enrichAppsWithCachedAppStoreMetadata } from "./appStoreClient.js";
 import { closeAppStoreCacheStore, initAppStoreCacheStore } from "./appStoreCacheStore.js";
+import {
+  closeDownloadAnalyticsStore,
+  initDownloadAnalyticsStore,
+  readPopularDownloadStats,
+  readProblemDownloadLinkStats,
+  recordDownloadAttempt
+} from "./downloadAnalyticsStore.js";
+import { probeDownloadUrl } from "./downloadProbe.js";
+import { decideDownloadRedirect, resolveDownloadTarget } from "./downloadService.js";
 import { sendError } from "./http.js";
 import {
   filterAppsByCategory,
@@ -27,7 +39,8 @@ import {
   getCategoryFacets,
   groupAppsByBundleId,
   paginateApps,
-  searchApps
+  searchApps,
+  sortApps
 } from "./normalizer.js";
 import { closeRepoCacheStore, initRepoCacheStore } from "./repoCacheStore.js";
 import { getSourceApps } from "./repoClient.js";
@@ -41,10 +54,12 @@ const frontendOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
 
 initRepoCacheStore();
 initAppStoreCacheStore();
+initDownloadAnalyticsStore();
 startRepoRefreshWorker(SOURCES);
 process.on("exit", () => {
   closeRepoCacheStore();
   closeAppStoreCacheStore();
+  closeDownloadAnalyticsStore();
 });
 
 async function getAppsForSources(sources: typeof SOURCES) {
@@ -165,6 +180,74 @@ app.post("/api/translate", async (req, res) => {
   }
 });
 
+app.get("/api/download", async (req, res) => {
+  const parsedQuery = DownloadQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    sendError(res, 400, "invalid_download_query", "Download query parameters are invalid.", parsedQuery.error.flatten());
+    return;
+  }
+
+  try {
+    const groupedApps = await getGroupedAppsForSources(SOURCES);
+    const target = resolveDownloadTarget(groupedApps, parsedQuery.data.appId, parsedQuery.data.sourceId);
+    if (!target.ok) {
+      sendError(res, target.status, target.code, target.message);
+      return;
+    }
+
+    const probe = await probeDownloadUrl(target.option.downloadURL);
+
+    try {
+      recordDownloadAttempt({
+        appId: target.app.id,
+        bundleIdentifier: target.app.bundleIdentifier,
+        appName: target.app.appStore?.name ?? target.app.name,
+        sourceId: target.option.sourceId,
+        sourceName: target.option.sourceName,
+        downloadURL: target.option.downloadURL,
+        probeStatus: probe.status,
+        probeStatusCode: probe.statusCode,
+        probeError: probe.error
+      });
+    } catch (error) {
+      console.error("Could not record download analytics.", error);
+    }
+
+    const decision = decideDownloadRedirect(target.option.downloadURL, probe);
+    if (!decision.shouldRedirect) {
+      sendError(res, decision.status, decision.code, decision.message, decision.details);
+      return;
+    }
+
+    res.redirect(302, decision.downloadURL);
+  } catch (error) {
+    sendError(res, 502, "download_failed", "Could not prepare this download.", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+app.get("/api/downloads/stats", (req, res) => {
+  const parsedQuery = DownloadStatsQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    sendError(res, 400, "invalid_download_stats_query", "Download stats query parameters are invalid.", parsedQuery.error.flatten());
+    return;
+  }
+
+  const body: DownloadStatsResponse =
+    parsedQuery.data.type === "popular"
+      ? {
+          type: "popular",
+          items: readPopularDownloadStats(parsedQuery.data.limit)
+        }
+      : {
+          type: "problem-links",
+          items: readProblemDownloadLinkStats(parsedQuery.data.limit)
+        };
+
+  res.json(body);
+});
+
 app.get("/api/sitemap/apps", async (_req, res) => {
   try {
     const groupedApps = await getGroupedAppsForSources(SOURCES);
@@ -204,7 +287,8 @@ app.get("/api/apps", async (req, res) => {
     const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
     const groupedApps = groupAppsByBundleId(filteredApps);
-    const pagedApps = paginateApps(groupedApps, parsedQuery.data);
+    const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+    const pagedApps = paginateApps(sortedApps, parsedQuery.data);
     const body: AppListResponse = {
       apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
       pagination: pagedApps.pagination,
@@ -276,7 +360,8 @@ app.get("/api/sources/:sourceId/apps", async (req, res) => {
     const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
     const groupedApps = groupAppsByBundleId(filteredApps);
-    const pagedApps = paginateApps(groupedApps, parsedQuery.data);
+    const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+    const pagedApps = paginateApps(sortedApps, parsedQuery.data);
     const body: AppsResponse = {
       source: sourceToDto(source, allApps.length),
       apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
@@ -320,7 +405,8 @@ app.get("/api/developers/:developerSlug/apps", async (req, res) => {
     });
     const categorizedApps = filterAppsByCategory(developerApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
-    const pagedApps = paginateApps(filteredApps, parsedQuery.data);
+    const sortedApps = sortApps(filteredApps, parsedQuery.data.sort);
+    const pagedApps = paginateApps(sortedApps, parsedQuery.data);
     const body: AppListResponse = {
       apps: pagedApps.apps,
       pagination: pagedApps.pagination,
@@ -357,7 +443,8 @@ app.get("/api/search", async (req, res) => {
     const categorizedApps = filterAppsByCategory(matchedApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
     const groupedApps = groupAppsByBundleId(filteredApps);
-    const pagedApps = paginateApps(groupedApps, parsedQuery.data);
+    const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+    const pagedApps = paginateApps(sortedApps, parsedQuery.data);
     const body: SearchResponse = {
       query: parsedQuery.data,
       apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),

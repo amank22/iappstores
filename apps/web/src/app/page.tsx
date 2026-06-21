@@ -60,6 +60,7 @@ async function loadInitialHomeData(searchParams: Record<string, string | string[
   const options: AppQueryOptions = {
     sourceId,
     category: urlState.selectedCategory,
+    sort: urlState.sort,
     iosVersion: getActiveIosVersion(urlState.iosVersion),
     iosVersionOperator: urlState.iosVersionOperator,
     page: 1,

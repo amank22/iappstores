@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { translateText } from "@/lib/api";
+import { trackAppDetailModalOpen, trackDownloadClick } from "@/lib/analytics";
+import { readDownloadedAppIds, recordDownloadedApp } from "@/lib/download-history";
 
 const appBadgeClassName = "h-6 max-w-full px-2.5 text-xs";
 const appMetricBadgeClassName = "h-6 max-w-full gap-1 px-2.5 text-xs";
@@ -55,6 +57,15 @@ function shouldOfferTranslation(text: string | null | undefined): text is string
 
 function getTranslateUrl(text: string): string {
   return `https://translate.google.com/?sl=auto&tl=en&text=${encodeURIComponent(text)}&op=translate`;
+}
+
+function getDownloadWrapperUrl(appId: string, sourceId: string): string {
+  const params = new URLSearchParams({
+    appId,
+    sourceId
+  });
+
+  return `/api/download?${params.toString()}`;
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -382,10 +393,19 @@ function CardHeroBottomFade() {
 
 export const AppCard = memo(function AppCard({
   app,
+  isDownloaded,
+  onDownloadStarted,
   showShareLink = true,
   showScreenshotHero = true
 }: {
   app: AppDto;
+  isDownloaded?: boolean;
+  onDownloadStarted?: (download: {
+    appId: string;
+    appName: string;
+    sourceId: string;
+    sourceName: string;
+  }) => void;
   showShareLink?: boolean;
   /** When false, skips the preview strip (e.g. detail page already shows a full gallery). */
   showScreenshotHero?: boolean;
@@ -394,6 +414,7 @@ export const AppCard = memo(function AppCard({
   const fileSize = formatBytes(app.size);
   const rating = formatRating(appStore?.averageUserRating, appStore?.userRatingCount);
   const downloadableOptions = app.downloadOptions.filter((option) => option.downloadURL);
+  const primaryDownloadOption = downloadableOptions[0] ?? null;
   const hasMultipleSources = app.downloadOptions.length > 1;
   const displayName = appStore?.name ?? app.name;
   const displayDeveloper = appStore?.developerName ?? app.developerName ?? "Unknown developer";
@@ -408,6 +429,8 @@ export const AppCard = memo(function AppCard({
   const appPagePath = `/apps/${encodeURIComponent(appPageId)}`;
   const [isDownloadPickerOpen, setIsDownloadPickerOpen] = useState(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+  const [fallbackIsDownloaded, setFallbackIsDownloaded] = useState(false);
+  const isAppDownloaded = isDownloaded ?? fallbackIsDownloaded;
 
   const allScreenshotUrls = getScreenshotUrls(app);
   const previewScreenshotUrls = showScreenshotHero ? allScreenshotUrls.slice(0, 3) : [];
@@ -427,6 +450,53 @@ export const AppCard = memo(function AppCard({
     };
   }, [isDescriptionOpen, isDownloadPickerOpen]);
 
+  useEffect(() => {
+    if (isDownloaded !== undefined || typeof window === "undefined") {
+      return;
+    }
+
+    function syncDownloadedState() {
+      setFallbackIsDownloaded(readDownloadedAppIds().has(app.id));
+    }
+
+    syncDownloadedState();
+    window.addEventListener("storage", syncDownloadedState);
+
+    return () => window.removeEventListener("storage", syncDownloadedState);
+  }, [app.id, isDownloaded]);
+
+  function handleDownloadStarted(option: { sourceId: string; sourceName: string }) {
+    const download = {
+      appId: app.id,
+      appName: displayName,
+      sourceId: option.sourceId,
+      sourceName: option.sourceName
+    };
+
+    trackDownloadClick({
+      ...download,
+      bundleIdentifier: app.bundleIdentifier,
+      downloadURL: app.downloadOptions.find((candidate) => candidate.sourceId === option.sourceId)?.downloadURL ?? null
+    });
+
+    if (onDownloadStarted) {
+      onDownloadStarted(download);
+      return;
+    }
+
+    recordDownloadedApp(download);
+    setFallbackIsDownloaded(true);
+  }
+
+  function openDescription() {
+    trackAppDetailModalOpen({
+      appId: app.id,
+      appName: displayName,
+      bundleIdentifier: app.bundleIdentifier
+    });
+    setIsDescriptionOpen(true);
+  }
+
   return (
     <>
       {/* Shadow/lift on wrapper — ui Card uses overflow-hidden which clips box-shadow. */}
@@ -444,11 +514,11 @@ export const AppCard = memo(function AppCard({
           className="flex h-full min-h-[23rem] min-w-0 cursor-pointer flex-col [contain:layout_paint]"
           role="button"
         tabIndex={0}
-        onClick={() => setIsDescriptionOpen(true)}
+        onClick={openDescription}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            setIsDescriptionOpen(true);
+            openDescription();
           }
         }}
       >
@@ -521,6 +591,11 @@ export const AppCard = memo(function AppCard({
               {hasPreviewScreenshots && moreScreenshotCount > 0 ? (
                 <Badge className={overlayBadgeClassName} variant="outline">
                   +{moreScreenshotCount} more
+                </Badge>
+              ) : null}
+              {isAppDownloaded ? (
+                <Badge className={overlayBadgeClassName} variant="secondary">
+                  Already downloaded
                 </Badge>
               ) : null}
             </div>
@@ -610,6 +685,11 @@ export const AppCard = memo(function AppCard({
                         v{app.latestVersion}
                       </Badge>
                     ) : null}
+                    {isAppDownloaded ? (
+                      <Badge className={appBadgeClassName} variant="secondary">
+                        Already downloaded
+                      </Badge>
+                    ) : null}
                   </div>
                   {(primaryGenreName || rating) ? (
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -683,9 +763,17 @@ export const AppCard = memo(function AppCard({
             >
               Download IPA
             </Button>
-          ) : app.downloadURL ? (
+          ) : app.downloadURL && primaryDownloadOption ? (
             <Button asChild className="w-full">
-              <a href={app.downloadURL} rel="noreferrer" target="_blank" onClick={(event) => event.stopPropagation()}>
+              <a
+                href={getDownloadWrapperUrl(app.id, primaryDownloadOption.sourceId)}
+                rel="noreferrer"
+                target="_blank"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDownloadStarted(primaryDownloadOption);
+                }}
+              >
                 Download IPA
               </a>
             </Button>
@@ -765,10 +853,13 @@ export const AppCard = memo(function AppCard({
                     variant="outline"
                   >
                     <a
-                      href={option.downloadURL ?? undefined}
+                      href={getDownloadWrapperUrl(app.id, option.sourceId)}
                       rel="noreferrer"
                       target="_blank"
-                      onClick={() => setIsDownloadPickerOpen(false)}
+                      onClick={() => {
+                        handleDownloadStarted(option);
+                        setIsDownloadPickerOpen(false);
+                      }}
                     >
                       <span className="min-w-0">
                         <span className="block truncate">{option.sourceName}</span>

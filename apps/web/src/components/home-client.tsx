@@ -6,6 +6,7 @@ import type {
   AppCategory,
   AppCategoryFacet,
   AppDto,
+  AppSort,
   IosVersionOperator,
   SourceDto
 } from "@iappstores/contracts";
@@ -21,6 +22,7 @@ import { fetchApps, fetchSources, searchApps } from "@/lib/api";
 import {
   ALL_SOURCES,
   DEFAULT_IOS_OPERATOR,
+  DEFAULT_SORT,
   HOME_EMPTY_CATEGORIES,
   HOME_EMPTY_PAGINATION,
   HOME_PAGE_SIZE,
@@ -28,6 +30,11 @@ import {
   parseHomeUrlState,
   type HomeInitialData
 } from "@/lib/home";
+import {
+  DOWNLOADED_APPS_STORAGE_KEY,
+  readDownloadedAppIds,
+  recordDownloadedApp
+} from "@/lib/download-history";
 
 const CATEGORY_LABELS: Record<AppCategory, string> = {
   all: "All",
@@ -41,6 +48,12 @@ const CATEGORY_LABELS: Record<AppCategory, string> = {
 const IOS_FILTER_LABELS: Record<IosVersionOperator, string> = {
   lte: "Compatible with iOS",
   gte: "Requires at least iOS"
+};
+
+const SORT_LABELS: Record<AppSort, string> = {
+  recent: "Recently updated",
+  "name-asc": "Name A-Z",
+  "name-desc": "Name Z-A"
 };
 
 const HOME_JSON_LD = {
@@ -188,6 +201,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [pagination, setPagination] = useState(initialData.pagination);
   const [selectedSourceId, setSelectedSourceId] = useState(initialUrlState.selectedSourceId);
   const [selectedCategory, setSelectedCategory] = useState<AppCategory>(initialUrlState.selectedCategory);
+  const [sort, setSort] = useState<AppSort>(initialUrlState.sort);
   const [iosVersion, setIosVersion] = useState(initialUrlState.iosVersion);
   const [iosVersionOperator, setIosVersionOperator] = useState<IosVersionOperator>(initialUrlState.iosVersionOperator);
   const [page, setPage] = useState(initialData.pagination.page);
@@ -195,6 +209,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [isLoadingSources, setIsLoadingSources] = useState(initialData.sources.length === 0);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
   const [error, setError] = useState<string | null>(initialData.error);
+  const [downloadedAppIds, setDownloadedAppIds] = useState<Set<string>>(() => new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const isLoadingNextPageRef = useRef(false);
   const hasSyncedInitialUrl = useRef(false);
@@ -213,16 +228,18 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
         query: trimmedQuery,
         selectedSourceId,
         selectedCategory,
+        sort,
         activeIosVersion,
         iosVersionOperator
       }),
-    [activeIosVersion, iosVersionOperator, selectedCategory, selectedSourceId, trimmedQuery]
+    [activeIosVersion, iosVersionOperator, selectedCategory, selectedSourceId, sort, trimmedQuery]
   );
   const currentRequestKey = useRef(requestKey);
   const hasActiveFilters =
     trimmedQuery.length > 0 ||
     selectedSourceId !== ALL_SOURCES ||
     selectedCategory !== "all" ||
+    sort !== DEFAULT_SORT ||
     trimmedIosVersion.length > 0 ||
     iosVersionOperator !== DEFAULT_IOS_OPERATOR;
 
@@ -276,6 +293,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       setQuery(nextState.query);
       setSelectedSourceId(nextState.selectedSourceId);
       setSelectedCategory(nextState.selectedCategory);
+      setSort(nextState.sort);
       setIosVersion(nextState.iosVersion);
       setIosVersionOperator(nextState.iosVersionOperator);
       setApps([]);
@@ -303,6 +321,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       if (selectedCategory !== "all") {
         params.set("category", selectedCategory);
       }
+      if (sort !== DEFAULT_SORT) {
+        params.set("sort", sort);
+      }
       if (trimmedIosVersion.length > 0) {
         params.set("ios", trimmedIosVersion);
         if (iosVersionOperator !== DEFAULT_IOS_OPERATOR) {
@@ -321,7 +342,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     }, 300);
 
     return () => window.clearTimeout(timeout);
-  }, [iosVersionOperator, selectedCategory, selectedSourceId, trimmedIosVersion, trimmedQuery]);
+  }, [iosVersionOperator, selectedCategory, selectedSourceId, sort, trimmedIosVersion, trimmedQuery]);
 
   useEffect(() => {
     if (shouldSkipInitialAppsFetch.current) {
@@ -342,6 +363,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           const options = {
             sourceId,
             category: selectedCategory,
+            sort,
             iosVersion: activeIosVersion,
             iosVersionOperator,
             page,
@@ -388,7 +410,34 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       isCancelled = true;
       clearTimeout(timeout);
     };
-  }, [activeIosVersion, iosVersionOperator, page, requestKey, selectedCategory, selectedSourceId, trimmedQuery]);
+  }, [activeIosVersion, iosVersionOperator, page, requestKey, selectedCategory, selectedSourceId, sort, trimmedQuery]);
+
+  useEffect(() => {
+    function syncDownloadedApps(event?: StorageEvent) {
+      if (event && event.key !== DOWNLOADED_APPS_STORAGE_KEY && event.key !== null) {
+        return;
+      }
+
+      setDownloadedAppIds(readDownloadedAppIds());
+    }
+
+    syncDownloadedApps();
+    window.addEventListener("storage", syncDownloadedApps);
+
+    return () => window.removeEventListener("storage", syncDownloadedApps);
+  }, []);
+
+  const handleDownloadStarted = useCallback(
+    (download: { appId: string; appName: string; sourceId: string; sourceName: string }) => {
+      const record = recordDownloadedApp(download);
+      if (!record) {
+        return;
+      }
+
+      setDownloadedAppIds((currentIds) => new Set(currentIds).add(record.appId));
+    },
+    []
+  );
 
   const loadNextPage = useCallback(() => {
     if (!pagination.hasNextPage || isLoadingApps || isLoadingNextPageRef.current) {
@@ -469,6 +518,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     setQuery("");
     setSelectedSourceId(ALL_SOURCES);
     setSelectedCategory("all");
+    setSort(DEFAULT_SORT);
     setIosVersion("");
     setIosVersionOperator(DEFAULT_IOS_OPERATOR);
     setApps([]);
@@ -574,7 +624,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
               ))}
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_11rem]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_14rem_11rem]">
               <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
                 <SelectTrigger className="h-8 w-full">
                   <SelectValue placeholder="All sources" />
@@ -586,6 +636,16 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                       {source.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={sort} onValueChange={(value) => setSort(value as AppSort)}>
+                <SelectTrigger className="h-8 w-full">
+                  <SelectValue placeholder="Sort results" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">{SORT_LABELS.recent}</SelectItem>
+                  <SelectItem value="name-asc">{SORT_LABELS["name-asc"]}</SelectItem>
+                  <SelectItem value="name-desc">{SORT_LABELS["name-desc"]}</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -616,6 +676,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 {trimmedQuery ? <Badge variant="outline">Search: {trimmedQuery}</Badge> : null}
                 {selectedCategory !== "all" ? <Badge variant="outline">{CATEGORY_LABELS[selectedCategory]}</Badge> : null}
                 {selectedSource ? <Badge variant="outline">{selectedSource.name}</Badge> : null}
+                {sort !== DEFAULT_SORT ? <Badge variant="outline">Sort: {SORT_LABELS[sort]}</Badge> : null}
                 {trimmedIosVersion ? (
                   <Badge variant="outline">
                     {activeIosVersion
@@ -666,7 +727,12 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           ) : apps.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {apps.map((app) => (
-                <AppCard key={app.id} app={app} />
+                <AppCard
+                  key={app.id}
+                  app={app}
+                  isDownloaded={downloadedAppIds.has(app.id)}
+                  onDownloadStarted={handleDownloadStarted}
+                />
               ))}
             </div>
           ) : (
