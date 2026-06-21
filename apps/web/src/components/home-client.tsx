@@ -35,6 +35,7 @@ import {
   readDownloadedAppIds,
   recordDownloadedApp
 } from "@/lib/download-history";
+import { SEO_LANDING_PAGES } from "@/lib/seo-landing-pages";
 
 const CATEGORY_LABELS: Record<AppCategory, string> = {
   all: "All",
@@ -592,6 +593,25 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <Badge variant="outline">Tweaked and modded apps</Badge>
           <Badge variant="outline">Repository notes preserved</Badge>
           <Badge variant="outline">App Store metadata when available</Badge>
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {SEO_LANDING_PAGES.map((page) => (
+            <Card key={page.slug} size="sm" className="h-full">
+              <CardHeader>
+                <Badge variant="secondary" className="w-fit">{page.eyebrow}</Badge>
+                <CardTitle>
+                  <Link href={`/${page.slug}`}>{page.title}</Link>
+                </CardTitle>
+                <CardDescription>{page.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link className="text-sm font-medium text-primary hover:underline" href={`/${page.slug}`}>
+                  Learn more
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </section>
 
         <Card>

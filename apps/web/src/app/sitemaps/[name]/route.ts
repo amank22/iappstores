@@ -1,5 +1,6 @@
 import { fetchDevelopers, fetchSitemapApps, fetchSources } from "@/lib/api";
 import { getAbsoluteUrl } from "@/lib/site";
+import { SEO_LANDING_PAGES } from "@/lib/seo-landing-pages";
 import {
   INDEXABLE_CATEGORIES,
   getAppUrl,
@@ -45,6 +46,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
       urlEntry(getAbsoluteUrl("/repositories")),
       urlEntry(getAbsoluteUrl("/developers")),
       urlEntry(getAbsoluteUrl("/guides")),
+      ...SEO_LANDING_PAGES.map((page) => urlEntry(getAbsoluteUrl(`/${page.slug}`))),
       ...INDEXABLE_CATEGORIES.map((category) => urlEntry(getAbsoluteUrl(`/category/${category}`))),
       urlEntry(getAbsoluteUrl("/guides/install-altstore")),
       urlEntry(getAbsoluteUrl("/guides/install-sidestore")),
