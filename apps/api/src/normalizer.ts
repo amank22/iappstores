@@ -123,19 +123,62 @@ function categorizeApp(app: AnyRecord): DerivedAppCategory {
     .join(" ")
     .toLowerCase();
 
-  if (/\b(game|games|gaming|emulator|arcade|minecraft|pokemon|delta|retroarch)\b/.test(text)) {
+  if (/\b(emulator|emulators|retroarch|delta|provenance|ppsspp|folium|gba|gbc|snes|nes|nintendo|playstation|psp|roms?)\b/.test(text)) {
+    return "emulators";
+  }
+
+  if (/\b(game|games|gaming|arcade|minecraft|pokemon|controller|puzzle|racing)\b/.test(text)) {
     return "games";
   }
 
-  if (/\b(music|video|photo|camera|movie|media|stream|youtube|spotify|piano)\b/.test(text)) {
+  if (/\b(discord|instagram|reddit|telegram|whatsapp|tiktok|social|chat|messenger|mastodon|bluesky)\b/.test(text)) {
+    return "social";
+  }
+
+  if (/\b(music|audio|podcast|sound|radio|spotify|piano|guitar|lyrics)\b/.test(text)) {
+    return "music";
+  }
+
+  if (/\b(video|photo|camera|movie|stream|youtube|twitch|recorder|editor|cinema)\b/.test(text)) {
+    return "photo-video";
+  }
+
+  if (/\b(media|anime|tv|television|entertainment|player)\b/.test(text)) {
     return "media";
   }
 
-  if (/\b(learn|learning|education|school|book|language|math|course|study)\b/.test(text)) {
+  if (/\b(learn|learning|education|school|language|math|course|study)\b/.test(text)) {
     return "education";
   }
 
+  if (/\b(book|books|manga|comic|reader|novel|pdf|ebook|library)\b/.test(text)) {
+    return "books";
+  }
+
+  if (/\b(code|coding|developer|terminal|ssh|git|api|json|script|console|debug)\b/.test(text)) {
+    return "developer";
+  }
+
+  if (/\b(note|notes|calendar|todo|task|document|office|scan|scanner|mail|email|productivity)\b/.test(text)) {
+    return "productivity";
+  }
+
+  if (/\b(vpn|file|files|manager|sign|signing|utility|utilities|system|keyboard|adblock|dns|browser|backup|cleaner|settings|shortcut)\b/.test(text)) {
+    return "utilities";
+  }
+
+  if (/\b(fitness|health|weather|travel|food|shopping|finance|wallet|lifestyle|sleep|habit)\b/.test(text)) {
+    return "lifestyle";
+  }
+
   return "tools";
+}
+
+export function recategorizeApps(apps: AppDto[]): AppDto[] {
+  return apps.map((app) => ({
+    ...app,
+    category: categorizeApp(app)
+  }));
 }
 
 function appTimestamp(app: AppDto): number {
@@ -368,9 +411,18 @@ export function getCategoryFacets(apps: AppDto[]): AppCategoryFacet[] {
     { id: "all", name: "All apps" },
     { id: "recent", name: "Recently updated" },
     { id: "games", name: "Games" },
+    { id: "emulators", name: "Emulators" },
     { id: "tools", name: "Tools" },
+    { id: "productivity", name: "Productivity" },
+    { id: "utilities", name: "Utilities" },
     { id: "media", name: "Media" },
-    { id: "education", name: "Education" }
+    { id: "music", name: "Music" },
+    { id: "photo-video", name: "Photo & Video" },
+    { id: "social", name: "Social" },
+    { id: "education", name: "Education" },
+    { id: "books", name: "Books" },
+    { id: "developer", name: "Developer" },
+    { id: "lifestyle", name: "Lifestyle" }
   ];
 
   return categories.map((category) => ({

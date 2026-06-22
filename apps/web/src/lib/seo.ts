@@ -1,16 +1,40 @@
 import type { AppCategory, AppDto, DerivedAppCategory } from "@iappstores/contracts";
 import { getAbsoluteUrl } from "@/lib/site";
 
-export const INDEXABLE_CATEGORIES = ["recent", "games", "tools", "media", "education"] as const;
+export const INDEXABLE_CATEGORIES = [
+  "recent",
+  "games",
+  "emulators",
+  "tools",
+  "productivity",
+  "utilities",
+  "media",
+  "music",
+  "photo-video",
+  "social",
+  "education",
+  "books",
+  "developer",
+  "lifestyle"
+] as const;
 export type IndexableCategory = (typeof INDEXABLE_CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<AppCategory, string> = {
   all: "All apps",
   recent: "Recently updated apps",
   games: "Games",
+  emulators: "Emulators",
   tools: "Tools",
+  productivity: "Productivity",
+  utilities: "Utilities",
   media: "Media",
-  education: "Education"
+  music: "Music",
+  "photo-video": "Photo & Video",
+  social: "Social",
+  education: "Education",
+  books: "Books",
+  developer: "Developer",
+  lifestyle: "Lifestyle"
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<IndexableCategory, string> = {
@@ -18,12 +42,30 @@ export const CATEGORY_DESCRIPTIONS: Record<IndexableCategory, string> = {
     "Browse recently updated IPA listings from AltStore and SideStore compatible repositories. These pages help you find fresh builds, changed repository notes, and updated download options without relying on search filters.",
   games:
     "Explore iOS game IPA listings, including emulator-related apps, arcade titles, patched game builds, and repository entries with screenshots or source notes when available.",
+  emulators:
+    "Browse emulator IPA listings for retro game systems, controller-focused apps, and related repository builds for iPhone and iPad.",
   tools:
     "Find iOS utility IPA listings for signing, productivity, system tools, file management, customization, and other practical apps indexed from compatible repositories.",
+  productivity:
+    "Browse productivity IPA listings for notes, calendars, documents, scanning, email, task management, and office workflows.",
+  utilities:
+    "Find utility IPA listings for file management, VPNs, signing helpers, browsers, keyboard tools, backups, DNS, and system-focused apps.",
   media:
     "Browse media-focused IPA listings for video, music, photo, camera, streaming, and creator apps. Repository notes are preserved where sources describe tweaks or patched builds.",
+  music:
+    "Explore music and audio IPA listings for listening, streaming, podcasts, instruments, radio, and sound tools.",
+  "photo-video":
+    "Browse photo and video IPA listings for cameras, editors, recording tools, streaming apps, and creator workflows.",
+  social:
+    "Find social and messaging IPA listings for chat, communities, social networks, and communication apps.",
   education:
-    "Discover education and learning IPA listings for study, reading, language, course, and school-related apps from indexed iOS app repositories."
+    "Discover education and learning IPA listings for study, language, courses, school, and training apps from indexed iOS app repositories.",
+  books:
+    "Browse book, manga, comic, PDF, ebook, and reading IPA listings from indexed iOS app repositories.",
+  developer:
+    "Find developer-focused IPA listings for terminals, code editors, Git, SSH, scripting, debugging, and API tools.",
+  lifestyle:
+    "Browse lifestyle IPA listings for health, fitness, weather, travel, shopping, finance, food, habits, and everyday utilities."
 };
 
 export function getAppDisplayName(app: AppDto): string {

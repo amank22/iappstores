@@ -46,8 +46,38 @@ const QueryBooleanSchema = (defaultValue: boolean) =>
     return raw;
   }, z.boolean());
 
-export const AppCategorySchema = z.enum(["all", "recent", "games", "tools", "media", "education"]);
-export const DerivedAppCategorySchema = z.enum(["games", "tools", "media", "education"]);
+export const AppCategorySchema = z.enum([
+  "all",
+  "recent",
+  "games",
+  "emulators",
+  "tools",
+  "productivity",
+  "utilities",
+  "media",
+  "music",
+  "photo-video",
+  "social",
+  "education",
+  "books",
+  "developer",
+  "lifestyle"
+]);
+export const DerivedAppCategorySchema = z.enum([
+  "games",
+  "emulators",
+  "tools",
+  "productivity",
+  "utilities",
+  "media",
+  "music",
+  "photo-video",
+  "social",
+  "education",
+  "books",
+  "developer",
+  "lifestyle"
+]);
 export const IosVersionOperatorSchema = z.enum(["lte", "gte"]);
 export const AppSortSchema = z.enum(["recent", "name-asc", "name-desc"]);
 export const IosVersionQuerySchema = z.preprocess((value) => {

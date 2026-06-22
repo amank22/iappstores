@@ -1,9 +1,12 @@
+import type { AppCategory } from "@iappstores/contracts";
+
 export type SeoLandingPage = {
   slug: string;
   eyebrow: string;
   title: string;
   description: string;
   intro: string;
+  featuredCategory: AppCategory;
   primaryCta: {
     label: string;
     href: string;
@@ -34,6 +37,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
     title: "IPA Download Browser for iPhone and iPad",
     description:
       "Browse iOS IPA download listings from AltStore and SideStore-compatible repositories with source notes, versions, bundle IDs, and compatibility details.",
+    featuredCategory: "recent",
     intro:
       "Use iappstores as a searchable IPA download index before you open an external source. The site groups duplicate bundle identifiers, keeps repository notes visible, and points download buttons back to the original source URLs.",
     primaryCta: {
@@ -97,6 +101,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
     title: "iOS IPA Downloads from Indexed App Repositories",
     description:
       "Search iOS IPA app listings by name, category, source, developer, bundle ID, and iOS compatibility across indexed repositories.",
+    featuredCategory: "recent",
     intro:
       "The iOS IPA ecosystem is spread across independent repositories. iappstores helps you search those repositories, compare metadata, and open the original source download when you decide a listing is worth checking.",
     primaryCta: {
@@ -116,7 +121,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         heading: "Browse by category when you do not know the app name",
         body:
-          "Category pages collect recent, game, tool, media, and education listings. These pages are helpful when you are exploring the repository ecosystem rather than looking for one specific bundle ID."
+          "Category pages collect recent apps plus focused buckets such as games, emulators, social, music, photo and video, productivity, utilities, education, books, developer tools, and lifestyle listings. These pages are helpful when you are exploring the repository ecosystem rather than looking for one specific bundle ID."
       },
       {
         heading: "Keep expectations clear",
@@ -160,6 +165,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
     title: "AltStore Repositories and IPA App Listings",
     description:
       "Browse AltStore-compatible repository metadata, app listings, categories, source notes, and IPA download options indexed by iappstores.",
+    featuredCategory: "tools",
     intro:
       "AltStore-compatible repositories publish structured metadata for apps and download options. iappstores turns those feeds into browsable repository, app, developer, and category pages.",
     primaryCta: {
@@ -223,6 +229,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
     title: "SideStore Repository Browser for IPA Apps",
     description:
       "Explore SideStore-compatible IPA repository listings, source notes, app metadata, and external download options in one searchable index.",
+    featuredCategory: "media",
     intro:
       "SideStore users often discover apps through repository feeds. iappstores helps organize those feeds into searchable app and repository pages while keeping the original source context visible.",
     primaryCta: {
@@ -286,6 +293,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
     title: "iPhone IPA Downloads and App Metadata",
     description:
       "Find iPhone IPA app listings with source repository notes, bundle identifiers, version dates, screenshots, and minimum iOS compatibility when available.",
+    featuredCategory: "games",
     intro:
       "Before opening an iPhone IPA download link, use iappstores to check the app metadata that repositories publish: source, version, bundle ID, screenshots, descriptions, and compatibility fields.",
     primaryCta: {

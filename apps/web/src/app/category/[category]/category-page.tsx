@@ -1,18 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { IndexableCategory } from "@/lib/seo";
+import { AppCard } from "@/components/app-card";
+import { SiteHeader } from "@/components/site-header";
 import { fetchApps } from "@/lib/api";
 import {
   CATEGORY_DESCRIPTIONS,
   CATEGORY_LABELS,
-  getAppDescription,
-  getAppDisplayName,
-  getAppPath,
   isIndexableCategory
 } from "@/lib/seo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const PAGE_SIZE = 24;
 
@@ -33,7 +31,8 @@ export async function CategoryPageContent({ category, page }: CategoryPageConten
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
+      <SiteHeader />
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">Category</Badge>
@@ -45,22 +44,7 @@ export async function CategoryPageContent({ category, page }: CategoryPageConten
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {response.apps.map((app) => (
-            <Card key={app.id} className="h-full">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  <Link href={getAppPath(app)}>{getAppDisplayName(app)}</Link>
-                </CardTitle>
-                <CardDescription>{app.sourceName}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p className="line-clamp-3 leading-6">{getAppDescription(app, 220)}</p>
-                <div className="flex flex-wrap gap-2">
-                  {app.latestVersion ? <Badge variant="outline">v{app.latestVersion}</Badge> : null}
-                  {app.minOSVersion ? <Badge variant="outline">iOS {app.minOSVersion}+</Badge> : null}
-                  {app.downloadOptions.length > 1 ? <Badge variant="outline">{app.downloadOptions.length} sources</Badge> : null}
-                </div>
-              </CardContent>
-            </Card>
+            <AppCard key={app.id} app={app} />
           ))}
         </section>
 

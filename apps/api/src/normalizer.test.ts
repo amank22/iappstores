@@ -93,8 +93,8 @@ describe("normalizeAltStoreRepo", () => {
       {
         apps: [
           {
-            name: "Delta Emulator",
-            bundleIdentifier: "com.example.delta",
+            name: "Arcade Game",
+            bundleIdentifier: "com.example.arcade",
             developerName: "Games Dev",
             versions: []
           },
@@ -121,6 +121,35 @@ describe("normalizeAltStoreRepo", () => {
       totalPages: 2,
       hasNextPage: true
     });
+  });
+
+  it("derives more specific categories from app metadata", () => {
+    const apps = normalizeAltStoreRepo(
+      {
+        apps: [
+          {
+            name: "RetroArch Emulator",
+            bundleIdentifier: "com.example.emulator",
+            versions: []
+          },
+          {
+            name: "Chat Messenger",
+            bundleIdentifier: "com.example.social",
+            versions: []
+          },
+          {
+            name: "Manga Reader",
+            bundleIdentifier: "com.example.books",
+            versions: []
+          }
+        ]
+      },
+      source
+    );
+
+    expect(filterAppsByCategory(apps, "emulators").map((app) => app.name)).toEqual(["RetroArch Emulator"]);
+    expect(filterAppsByCategory(apps, "social").map((app) => app.name)).toEqual(["Chat Messenger"]);
+    expect(filterAppsByCategory(apps, "books").map((app) => app.name)).toEqual(["Manga Reader"]);
   });
 
   it("filters apps by minimum iOS version comparisons", () => {

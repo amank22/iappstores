@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { AppDto } from "@iappstores/contracts";
-import { normalizeAltStoreRepo } from "./normalizer.js";
+import { normalizeAltStoreRepo, recategorizeApps } from "./normalizer.js";
 import {
   readSourceCache,
   writeSourceCache,
@@ -248,7 +248,7 @@ function writeMemoryCache(sourceId: string, apps: AppDto[], expiresAt: number, r
 }
 
 function hydrateMemoryFromSqlite(entry: SourceCacheEntry): void {
-  writeMemoryCache(entry.sourceId, entry.apps, entry.expiresAt);
+  writeMemoryCache(entry.sourceId, recategorizeApps(entry.apps), entry.expiresAt);
 }
 
 async function fetchAndPersistSourceApps(source: SourceDefinition, ttlMs: number): Promise<AppDto[]> {
@@ -290,13 +290,14 @@ export async function getSourceApps(source: SourceDefinition, ttlMs = getCacheTt
 
   const sqliteCache = readSourceCache(source);
   if (sqliteCache) {
-    hydrateMemoryFromSqlite(sqliteCache);
+    const apps = recategorizeApps(sqliteCache.apps);
+    hydrateMemoryFromSqlite({ ...sqliteCache, apps });
 
     if (sqliteCache.isExpired) {
       void refreshSourceApps(source, ttlMs).catch(() => undefined);
     }
 
-    return sqliteCache.apps;
+    return apps;
   }
 
   return refreshSourceApps(source, ttlMs);

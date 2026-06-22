@@ -16,9 +16,18 @@ export const HOME_EMPTY_CATEGORIES: AppCategoryFacet[] = [
   { id: "all", name: "All apps", appCount: 0 },
   { id: "recent", name: "Recently updated", appCount: 0 },
   { id: "games", name: "Games", appCount: 0 },
+  { id: "emulators", name: "Emulators", appCount: 0 },
   { id: "tools", name: "Tools", appCount: 0 },
+  { id: "productivity", name: "Productivity", appCount: 0 },
+  { id: "utilities", name: "Utilities", appCount: 0 },
   { id: "media", name: "Media", appCount: 0 },
-  { id: "education", name: "Education", appCount: 0 }
+  { id: "music", name: "Music", appCount: 0 },
+  { id: "photo-video", name: "Photo & Video", appCount: 0 },
+  { id: "social", name: "Social", appCount: 0 },
+  { id: "education", name: "Education", appCount: 0 },
+  { id: "books", name: "Books", appCount: 0 },
+  { id: "developer", name: "Developer", appCount: 0 },
+  { id: "lifestyle", name: "Lifestyle", appCount: 0 }
 ];
 
 export type HomeUrlState = {
@@ -41,7 +50,23 @@ export type HomeInitialData = {
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
 
-const APP_CATEGORIES = new Set<AppCategory>(["all", "recent", "games", "tools", "media", "education"]);
+const APP_CATEGORIES = new Set<AppCategory>([
+  "all",
+  "recent",
+  "games",
+  "emulators",
+  "tools",
+  "productivity",
+  "utilities",
+  "media",
+  "music",
+  "photo-video",
+  "social",
+  "education",
+  "books",
+  "developer",
+  "lifestyle"
+]);
 const IOS_OPERATORS = new Set<IosVersionOperator>(["lte", "gte"]);
 const APP_SORTS = new Set<AppSort>(["recent", "name-asc", "name-desc"]);
 

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchApps, fetchSources } from "@/lib/api";
+import { AppCard } from "@/components/app-card";
+import { SiteHeader } from "@/components/site-header";
 import { getAbsoluteUrl } from "@/lib/site";
 import {
   CATEGORY_DESCRIPTIONS,
@@ -15,13 +17,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Apps Sitemap",
-  description: "Browse iappstores app pages by category, recent updates, repository, and alphabetical navigation.",
+  title: "Browse IPA Apps",
+  description: "Browse iappstores IPA app pages with recently updated app cards, categories, repositories, and alphabetical navigation.",
   alternates: {
     canonical: "/apps"
   },
   openGraph: {
-    title: "Apps Sitemap | iappstores",
+    title: "Browse IPA Apps | iappstores",
     description: "Browse crawlable iOS IPA app listings from indexed AltStore and SideStore repositories.",
     url: "/apps"
   }
@@ -38,14 +40,31 @@ export default async function AppsSitemapPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
+      <SiteHeader />
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
-          <Badge variant="secondary">HTML sitemap</Badge>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Browse iOS IPA app pages</h1>
+          <Badge variant="secondary">App directory</Badge>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Browse iOS IPA apps</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Use this crawlable directory to find app pages by category, recent updates, repositories, and app names.
-            Each link points to a canonical iappstores page with source details and download options.
+            Browse recently updated IPA listings with full app cards, then use the category, repository, and alphabetical
+            index sections below when you want crawlable directory-style navigation.
           </p>
+        </section>
+
+        <section className="space-y-4">
+          <div className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+            <Badge variant="secondary">Recently updated</Badge>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">Fresh IPA app listings</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              These cards use the same rich app UI as the homepage, including icons, screenshots, source notes,
+              download options, and App Store context when available.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {recentApps.apps.map((app) => (
+              <AppCard key={app.id} app={app} />
+            ))}
+          </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -86,21 +105,6 @@ export default async function AppsSitemapPage() {
             </CardContent>
           </Card>
         </section>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recently updated apps</CardTitle>
-            <CardDescription>Fresh app pages from indexed repositories.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {recentApps.apps.map((app) => (
-              <Link key={app.id} className="rounded-md p-2 text-sm hover:bg-muted/60" href={getAppPath(app)}>
-                <span className="font-medium text-foreground">{getAppDisplayName(app)}</span>
-                <span className="block text-xs text-muted-foreground">{app.sourceName}</span>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
 
         <section className="grid gap-4 lg:grid-cols-2">
           <Card>

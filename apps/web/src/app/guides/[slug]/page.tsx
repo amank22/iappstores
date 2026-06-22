@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SiteHeader } from "@/components/site-header";
 import { GUIDES, getGuide } from "@/lib/guides";
 import { getAbsoluteUrl } from "@/lib/site";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +76,7 @@ export default async function GuidePage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <SiteHeader />
       <script
         type="application/ld+json"
         suppressHydrationWarning

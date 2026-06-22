@@ -41,9 +41,18 @@ const CATEGORY_LABELS: Record<AppCategory, string> = {
   all: "All",
   recent: "Recent",
   games: "Games",
+  emulators: "Emulators",
   tools: "Tools",
+  productivity: "Productivity",
+  utilities: "Utilities",
   media: "Media",
-  education: "Education"
+  music: "Music",
+  "photo-video": "Photo & Video",
+  social: "Social",
+  education: "Education",
+  books: "Books",
+  developer: "Developer",
+  lifestyle: "Lifestyle"
 };
 
 const IOS_FILTER_LABELS: Record<IosVersionOperator, string> = {
@@ -107,8 +116,9 @@ const HOME_JSON_LD = {
 const popularSearches = ["YouTube", "Instagram", "Spotify", "TikTok"];
 const discoveryLinks = [
   { href: "/?category=games", label: "Games" },
-  { href: "/?category=media", label: "Media apps" },
-  { href: "/?category=tools", label: "Tools" },
+  { href: "/?category=emulators", label: "Emulators" },
+  { href: "/?category=social", label: "Social" },
+  { href: "/?category=photo-video", label: "Photo & Video" },
   { href: "/?ios=16&iosOperator=lte", label: "iOS 16 compatible" }
 ];
 
@@ -538,87 +548,51 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
         aria-label="Third-party software notice"
         className="border-b border-amber-500/25 bg-amber-500/[0.07]"
       >
-        <div className="mx-auto flex max-w-7xl gap-3 px-3 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl gap-2 px-3 py-2 sm:px-6 lg:px-8">
           <ShieldWarningIcon
-            className="mt-0.5 h-5 w-5 shrink-0 text-amber-400"
+            className="mt-0.5 h-4 w-4 shrink-0 text-amber-400"
             aria-hidden
           />
-          <div className="min-w-0 space-y-1 text-sm leading-snug">
-            <p className="font-medium text-amber-100">Third-party sources — judge safety yourself</p>
-            <p className="text-amber-50/85">
-              IPAs come from many independent repositories we index; we do not host files, verify authenticity, or review
-              code for malware or privacy impact. Only install what you trust after checking each source and listing.
-            </p>
-          </div>
+          <p className="min-w-0 text-xs leading-5 text-amber-50/85">
+            <span className="font-medium text-amber-100">Third-party sources:</span> we index repositories, but do not
+            host or verify IPA files. Check each source before installing.
+          </p>
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
         <section className="overflow-hidden rounded-lg bg-card text-card-foreground ring-1 ring-foreground/10">
-          <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_16rem] lg:p-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
+          <div className="space-y-3 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 {/* Brand asset lives in public/ so it also works for Docker/Coolify deployments. */}
-                <img src="/logo.svg" alt="iappstores logo" className="h-9 w-9 rounded-lg ring-1 ring-foreground/10" />
+                <img src="/logo.svg" alt="iappstores logo" className="h-8 w-8 rounded-lg ring-1 ring-foreground/10" />
                 <Badge variant="secondary">AltStore and SideStore repositories</Badge>
               </div>
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">iappstores</h1>
-                <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked,
-                  modded, and patched iOS apps with App Store context when available.
-                </p>
-              </div>
-              <Input
-                className="h-8"
-                placeholder="Search apps, bundle IDs, developers..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-1">
-              <div className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
-                <div className="text-2xl font-semibold">{isLoadingSources ? "-" : sources.length}</div>
-                <div className="mt-1 text-muted-foreground">Sources indexed</div>
-              </div>
-              <div className="rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
-                <div className="text-2xl font-semibold">{pagination.totalItems}</div>
-                <div className="mt-1 text-muted-foreground">{trimmedQuery ? "Matches" : "Apps available"}</div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant="outline">{isLoadingSources ? "-" : sources.length} sources</Badge>
+                <Badge variant="outline">{pagination.totalItems.toLocaleString()} apps</Badge>
               </div>
             </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Find iOS IPA apps</h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Search app names, bundle IDs, developers, and repositories. Compare source notes before opening an IPA download.
+              </p>
+            </div>
+            <Input
+              className="h-9"
+              placeholder="Search apps, bundle IDs, developers..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
           </div>
-        </section>
-
-        <section className="flex gap-2 overflow-x-auto pb-1 text-xs text-muted-foreground">
-          <Badge variant="outline">Direct IPA downloads</Badge>
-          <Badge variant="outline">Tweaked and modded apps</Badge>
-          <Badge variant="outline">Repository notes preserved</Badge>
-          <Badge variant="outline">App Store metadata when available</Badge>
-        </section>
-
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {SEO_LANDING_PAGES.map((page) => (
-            <Card key={page.slug} size="sm" className="h-full">
-              <CardHeader>
-                <Badge variant="secondary" className="w-fit">{page.eyebrow}</Badge>
-                <CardTitle>
-                  <Link href={`/${page.slug}`}>{page.title}</Link>
-                </CardTitle>
-                <CardDescription>{page.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link className="text-sm font-medium text-primary hover:underline" href={`/${page.slug}`}>
-                  Learn more
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
         </section>
 
         <Card>
-          <CardHeader className="flex gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+          <CardHeader className="flex gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Refine results</CardTitle>
-              <CardDescription>Use filters when you need them. Reset anytime.</CardDescription>
+              <CardTitle>Filter apps</CardTitle>
+              <CardDescription className="hidden sm:block">Choose a category, source, sort, or iOS version.</CardDescription>
             </div>
             <Button
               variant={hasActiveFilters ? "default" : "outline"}
@@ -629,7 +603,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
               Reset filters
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3 p-4 pt-0 sm:p-5 sm:pt-0">
+          <CardContent className="space-y-3 p-3 pt-0">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {visibleCategories.map((category) => (
                 <Button
@@ -789,6 +763,15 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
               category, and minimum iOS version. Duplicate bundle IDs are grouped into one app card with multiple IPA
               download options, making repeated listings easier to compare.
             </p>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto rounded-lg bg-muted/40 p-2 text-xs ring-1 ring-foreground/10" aria-label="Popular IPA search pages">
+            <span className="shrink-0 px-2 py-1 font-medium text-muted-foreground">Popular searches</span>
+            {SEO_LANDING_PAGES.map((page) => (
+              <Button key={page.slug} asChild variant="outline" size="sm" className="shrink-0">
+                <Link href={`/${page.slug}`}>{page.eyebrow}</Link>
+              </Button>
+            ))}
           </div>
 
           <div className="grid gap-3 text-sm text-muted-foreground lg:grid-cols-2">
