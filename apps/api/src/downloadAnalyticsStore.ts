@@ -20,6 +20,7 @@ export type DownloadAnalyticsInput = {
   probeStatusCode: number | null;
   probeError: string | null;
   createdAt?: number;
+  sessionHash?: string | null;
 };
 
 type PopularDownloadStatsRow = {
@@ -65,6 +66,7 @@ function createDatabase(): DatabaseSync {
       probe_status TEXT NOT NULL CHECK (probe_status IN ('success', 'hard_failure', 'inconclusive')),
       probe_status_code INTEGER,
       probe_error TEXT,
+      session_hash TEXT,
       created_at INTEGER NOT NULL
     );
 
@@ -100,6 +102,12 @@ function createDatabase(): DatabaseSync {
       ON download_link_stats (failure_count DESC, last_failure_at DESC);
   `);
 
+  const columns = db.prepare("PRAGMA table_info(download_events)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "session_hash")) {
+    db.exec("ALTER TABLE download_events ADD COLUMN session_hash TEXT");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_download_events_session_created ON download_events(session_hash, created_at)");
+
   return db;
 }
 
@@ -132,9 +140,9 @@ export function recordDownloadAttempt(input: DownloadAnalyticsInput): void {
       `
         INSERT INTO download_events (
           app_id, bundle_identifier, app_name, source_id, source_name, download_url,
-          probe_status, probe_status_code, probe_error, created_at
+          probe_status, probe_status_code, probe_error, session_hash, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
     ).run(
       input.appId,
@@ -146,6 +154,7 @@ export function recordDownloadAttempt(input: DownloadAnalyticsInput): void {
       input.probeStatus,
       input.probeStatusCode,
       input.probeError,
+      input.sessionHash ?? null,
       createdAt
     );
 
@@ -199,6 +208,33 @@ export function recordDownloadAttempt(input: DownloadAnalyticsInput): void {
     db.exec("ROLLBACK");
     throw error;
   }
+}
+
+export function readDownloadCounts(since: number | null = null): Map<string, number> {
+  const rows = getDatabase().prepare(`
+    SELECT app_id, COUNT(*) AS count
+    FROM download_events
+    WHERE probe_status != 'hard_failure' ${since === null ? "" : "AND created_at >= ?"}
+    GROUP BY app_id
+  `).all(...(since === null ? [] : [since])) as Array<{ app_id: string; count: number }>;
+  return new Map(rows.map((row) => [row.app_id, row.count]));
+}
+
+export function readAlsoDownloaded(appId: string, since: number, limit = 12): string[] {
+  const rows = getDatabase().prepare(`
+    SELECT other.app_id, COUNT(DISTINCT other.session_hash) AS shared_sessions
+    FROM download_events target
+    JOIN download_events other ON other.session_hash = target.session_hash
+    WHERE target.app_id = ? AND target.session_hash IS NOT NULL
+      AND target.created_at >= ? AND other.created_at >= ?
+      AND other.app_id != target.app_id
+      AND target.probe_status != 'hard_failure' AND other.probe_status != 'hard_failure'
+    GROUP BY other.app_id
+    HAVING shared_sessions >= 3
+    ORDER BY shared_sessions DESC, MAX(other.created_at) DESC
+    LIMIT ?
+  `).all(appId, since, since, limit) as Array<{ app_id: string }>;
+  return rows.map((row) => row.app_id);
 }
 
 export function readPopularDownloadStats(limit: number): PopularDownloadStatsItem[] {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CategoryPageContent, getCategoryMetadata } from "../../category-page";
 import { isIndexableCategory } from "@/lib/seo";
 
@@ -29,5 +29,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryPaginationPage({ params }: PageProps) {
   const { category, page: rawPage } = await params;
+  if (category === "recent") permanentRedirect("/updates");
   return <CategoryPageContent category={category} page={parsePage(rawPage)} />;
 }

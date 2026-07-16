@@ -2,6 +2,7 @@ import type {
   AppCategory,
   AppCategoryFacet,
   AppDownloadOption,
+  AppVersionBuild,
   AppSort,
   AppDto,
   BrowseAppsQuery,
@@ -243,6 +244,27 @@ export function normalizeAltStoreRepo(repoJson: unknown, source: SourceDefinitio
     const latest = pickLatestVersion(app);
     const bundleIdentifier = asString(app.bundleIdentifier);
     const stableId = `${source.id}:${bundleIdentifier ?? slugify(name)}`;
+    const versions: AppVersionBuild[] = (Array.isArray(app.versions) ? app.versions.filter(isRecord) : []).flatMap(
+      (version) => {
+        const versionNumber = asString(version.version);
+        if (!versionNumber) {
+          return [];
+        }
+
+        return [{
+          sourceId: source.id,
+          sourceName: source.name,
+          version: versionNumber,
+          releaseDate: asString(version.date),
+          changelog: asString(version.localizedDescription ?? version.description),
+          downloadURL: asUrl(version.downloadURL ?? version.downloadUrl),
+          size: asNumber(version.size),
+          minOSVersion: asString(version.minOSVersion ?? version.minOsVersion),
+          firstSeenAt: null,
+          lastSeenAt: null
+        }];
+      }
+    );
     const downloadOption: AppDownloadOption = {
       sourceId: source.id,
       sourceName: source.name,
@@ -273,7 +295,14 @@ export function normalizeAltStoreRepo(repoJson: unknown, source: SourceDefinitio
         downloadURL: latest ? asUrl(latest.downloadURL ?? latest.downloadUrl) : null,
         size: latest ? asNumber(latest.size) : null,
         minOSVersion: latest ? asString(latest.minOSVersion ?? latest.minOsVersion) : null,
-        downloadOptions: [downloadOption]
+        downloadOptions: [downloadOption],
+        versions,
+        firstSeenAt: null,
+        lastSeenAt: null,
+        metadataUpdatedAt: null,
+        lastUpdatedAt: latest ? asString(latest.date) : null,
+        canonicalId: bundleIdentifier ? bundleIdentifier.toLowerCase() : stableId,
+        canonicalStatus: "active"
       }
     ];
   });
@@ -346,6 +375,18 @@ function dedupeDownloadOptions(options: AppDownloadOption[]): AppDownloadOption[
   });
 }
 
+function dedupeVersions(versions: AppVersionBuild[]): AppVersionBuild[] {
+  const seen = new Set<string>();
+  return [...versions]
+    .sort((a, b) => (Date.parse(b.releaseDate ?? "") || 0) - (Date.parse(a.releaseDate ?? "") || 0))
+    .filter((version) => {
+      const key = [version.version.toLowerCase(), version.sourceId, version.downloadURL ?? ""].join("|");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function sortGroupedApps(apps: AppDto[]): AppDto[] {
   return [...apps].sort((a, b) => {
     const dateDifference = appTimestamp(b) - appTimestamp(a);
@@ -385,7 +426,9 @@ export function groupAppsByBundleId(apps: AppDto[]): AppDto[] {
       const sortedGroup = sortGroupedApps(group);
       const representative = sortedGroup[0]!;
       const downloadOptions = dedupeDownloadOptions(group.flatMap((app) => app.downloadOptions));
+      const versions = dedupeVersions(group.flatMap((app) => app.versions));
       const preferredOption = downloadOptions[0];
+      const canonicalId = representative.bundleIdentifier?.toLowerCase() ?? representative.id;
 
       return {
         ...representative,
@@ -400,7 +443,16 @@ export function groupAppsByBundleId(apps: AppDto[]): AppDto[] {
         size: preferredOption?.size ?? representative.size,
         minOSVersion: preferredOption?.minOSVersion ?? representative.minOSVersion,
         appStoreUrl: representative.appStoreUrl ?? group.find((app) => app.appStoreUrl)?.appStoreUrl ?? null,
-        downloadOptions
+        downloadOptions,
+        versions,
+        canonicalId,
+        firstSeenAt: group.map((app) => app.firstSeenAt).filter(Boolean).sort()[0] ?? null,
+        lastSeenAt: group.map((app) => app.lastSeenAt).filter(Boolean).sort().at(-1) ?? null,
+        metadataUpdatedAt: group.map((app) => app.metadataUpdatedAt).filter(Boolean).sort().at(-1) ?? null,
+        lastUpdatedAt:
+          preferredOption?.versionDate ??
+          group.map((app) => app.metadataUpdatedAt).filter(Boolean).sort().at(-1) ??
+          null
       };
     })
   );

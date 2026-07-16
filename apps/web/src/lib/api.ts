@@ -7,6 +7,13 @@ import {
   SitemapAppsResponseSchema,
   SourcesResponseSchema,
   TranslationResponseSchema,
+  UpdatesResponseSchema,
+  ArchivesResponseSchema,
+  VersionsResponseSchema,
+  VersionResponseSchema,
+  RecommendationsResponseSchema,
+  CollectionResponseSchema,
+  AppStatusResponseSchema,
   type AppCategory,
   type AppListResponse,
   type AppResponse,
@@ -20,6 +27,14 @@ import {
   type SourceDto,
   type SourcesResponse,
   type TranslationResponse
+  ,type UpdatesResponse
+  ,type ArchivesResponse
+  ,type VersionsResponse
+  ,type VersionResponse
+  ,type RecommendationsResponse
+  ,type CollectionResponse
+  ,type CollectionSlug
+  ,type AppStatusResponse
 } from "@iappstores/contracts";
 
 export type AppQueryOptions = {
@@ -156,6 +171,40 @@ export async function fetchSitemapApps(): Promise<SitemapAppsResponse> {
 
 export async function fetchApp(appId: string): Promise<AppResponse> {
   return request(`/api/apps/${encodeURIComponent(appId)}`, AppResponseSchema);
+}
+
+export async function fetchUpdates(options: { from?: string; to?: string; type?: "all" | "new" | "version"; page?: number; pageSize?: number } = {}): Promise<UpdatesResponse> {
+  const params = new URLSearchParams();
+  if (options.from) params.set("from", options.from);
+  if (options.to) params.set("to", options.to);
+  if (options.type) params.set("type", options.type);
+  if (options.page) params.set("page", String(options.page));
+  if (options.pageSize) params.set("pageSize", String(options.pageSize));
+  return request(`/api/updates${params.size ? `?${params}` : ""}`, UpdatesResponseSchema);
+}
+
+export async function fetchUpdateArchives(): Promise<ArchivesResponse> {
+  return request("/api/updates/archives", ArchivesResponseSchema);
+}
+
+export async function fetchAppVersions(appId: string): Promise<VersionsResponse> {
+  return request(`/api/apps/${encodeURIComponent(appId)}/versions`, VersionsResponseSchema);
+}
+
+export async function fetchAppVersion(appId: string, version: string): Promise<VersionResponse> {
+  return request(`/api/apps/${encodeURIComponent(appId)}/versions/${encodeURIComponent(version)}`, VersionResponseSchema);
+}
+
+export async function fetchRecommendations(appId: string): Promise<RecommendationsResponse> {
+  return request(`/api/apps/${encodeURIComponent(appId)}/recommendations`, RecommendationsResponseSchema);
+}
+
+export async function fetchCollection(slug: CollectionSlug): Promise<CollectionResponse> {
+  return request(`/api/collections/${encodeURIComponent(slug)}`, CollectionResponseSchema);
+}
+
+export async function fetchAppStatus(appId: string): Promise<AppStatusResponse> {
+  return request(`/api/apps/${encodeURIComponent(appId)}/status`, AppStatusResponseSchema);
 }
 
 export async function searchApps(query: string, options: AppQueryOptions = {}): Promise<SearchResponse> {

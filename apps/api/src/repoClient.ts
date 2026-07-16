@@ -8,6 +8,7 @@ import {
   type SourceCacheEntry
 } from "./repoCacheStore.js";
 import type { SourceDefinition } from "./sources.js";
+import { syncSourceCatalog } from "./catalogStore.js";
 
 export const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -259,6 +260,7 @@ async function fetchAndPersistSourceApps(source: SourceDefinition, ttlMs: number
         : await fetchAltStoreSourceApps(source);
     const apps = fetched.apps;
     writeSourceCache(source, apps, ttlMs);
+    syncSourceCatalog(source.id, apps);
     writeMemoryCache(source.id, apps, Date.now() + ttlMs, fetched.raw);
 
     return apps;
@@ -291,6 +293,7 @@ export async function getSourceApps(source: SourceDefinition, ttlMs = getCacheTt
   const sqliteCache = readSourceCache(source);
   if (sqliteCache) {
     const apps = recategorizeApps(sqliteCache.apps);
+    syncSourceCatalog(source.id, apps);
     hydrateMemoryFromSqlite({ ...sqliteCache, apps });
 
     if (sqliteCache.isExpired) {

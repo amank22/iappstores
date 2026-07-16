@@ -70,6 +70,13 @@ export const metadata: Metadata = {
     ],
     shortcut: "/favicon.ico",
     apple: "/logo.svg"
+  },
+  alternates: {
+    types: {
+      "application/rss+xml": "/feed.xml",
+      "application/atom+xml": "/atom.xml",
+      "application/feed+json": "/feed.json"
+    }
   }
 };
 

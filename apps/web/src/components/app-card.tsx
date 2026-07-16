@@ -11,6 +11,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { translateText } from "@/lib/api";
 import { trackAppDetailModalOpen, trackDownloadClick } from "@/lib/analytics";
 import { readDownloadedAppIds, recordDownloadedApp } from "@/lib/download-history";
+import { getAnonymousSessionId } from "@/lib/anonymous-session";
 
 const appBadgeClassName = "h-6 max-w-full px-2.5 text-xs";
 const appMetricBadgeClassName = "h-6 max-w-full gap-1 px-2.5 text-xs";
@@ -59,11 +60,12 @@ function getTranslateUrl(text: string): string {
   return `https://translate.google.com/?sl=auto&tl=en&text=${encodeURIComponent(text)}&op=translate`;
 }
 
-function getDownloadWrapperUrl(appId: string, sourceId: string): string {
+function getDownloadWrapperUrl(appId: string, sourceId: string, sessionId?: string | null): string {
   const params = new URLSearchParams({
     appId,
     sourceId
   });
+  if (sessionId) params.set("sessionId", sessionId);
 
   return `/api/download?${params.toString()}`;
 }
@@ -410,6 +412,8 @@ export const AppCard = memo(function AppCard({
   /** When false, skips the preview strip (e.g. detail page already shows a full gallery). */
   showScreenshotHero?: boolean;
 }) {
+  const [anonymousSessionId, setAnonymousSessionId] = useState<string | null>(null);
+  useEffect(() => setAnonymousSessionId(getAnonymousSessionId()), []);
   const appStore = app.appStore ?? null;
   const fileSize = formatBytes(app.size);
   const rating = formatRating(appStore?.averageUserRating, appStore?.userRatingCount);
@@ -766,7 +770,7 @@ export const AppCard = memo(function AppCard({
           ) : app.downloadURL && primaryDownloadOption ? (
             <Button asChild className="w-full">
               <a
-                href={getDownloadWrapperUrl(app.id, primaryDownloadOption.sourceId)}
+                href={getDownloadWrapperUrl(app.id, primaryDownloadOption.sourceId, anonymousSessionId)}
                 rel="noreferrer"
                 target="_blank"
                 onClick={(event) => {
@@ -853,7 +857,7 @@ export const AppCard = memo(function AppCard({
                     variant="outline"
                   >
                     <a
-                      href={getDownloadWrapperUrl(app.id, option.sourceId)}
+                      href={getDownloadWrapperUrl(app.id, option.sourceId, anonymousSessionId)}
                       rel="noreferrer"
                       target="_blank"
                       onClick={() => {

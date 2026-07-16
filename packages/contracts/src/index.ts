@@ -111,8 +111,27 @@ export const TranslationRequestSchema = z.object({
 
 export const DownloadQuerySchema = z.object({
   appId: QueryStringSchema,
-  sourceId: QueryStringSchema
+  sourceId: QueryStringSchema,
+  sessionId: QueryStringSchema.optional()
 });
+
+export const UpdatesQuerySchema = z.object({
+  page: QueryPositiveIntegerSchema(1, 10_000),
+  pageSize: QueryPositiveIntegerSchema(24, 100),
+  from: QueryStringSchema.optional(),
+  to: QueryStringSchema.optional(),
+  type: z.enum(["all", "new", "version"]).default("all")
+});
+
+export const CollectionSlugSchema = z.enum([
+  "best-emulator-apps",
+  "best-music-apps",
+  "best-productivity-apps",
+  "trending-apps",
+  "new-apps",
+  "most-downloaded",
+  "ios-26-compatible"
+]);
 
 export const DownloadStatsQuerySchema = z.object({
   type: z.enum(["popular", "problem-links"]).default("popular"),
@@ -169,6 +188,30 @@ export const AppDownloadOptionSchema = z.object({
   minOSVersion: z.string().nullable()
 });
 
+export const AppVersionBuildSchema = z.object({
+  sourceId: z.string(),
+  sourceName: z.string(),
+  version: z.string(),
+  releaseDate: z.string().nullable(),
+  changelog: z.string().nullable(),
+  downloadURL: z.string().url().nullable(),
+  size: z.number().int().nonnegative().nullable(),
+  minOSVersion: z.string().nullable(),
+  firstSeenAt: z.string().nullable().default(null),
+  lastSeenAt: z.string().nullable().default(null)
+});
+
+export const AppVersionSchema = z.object({
+  version: z.string(),
+  releaseDate: z.string().nullable(),
+  changelog: z.string().nullable(),
+  firstSeenAt: z.string().nullable().default(null),
+  metadataUpdatedAt: z.string().nullable().default(null),
+  builds: z.array(AppVersionBuildSchema)
+});
+
+export const CanonicalAppStatusSchema = z.enum(["active", "missing", "removed", "redirect"]);
+
 export const AppStoreMetadataSchema = z.object({
   country: z.string().length(2),
   bundleId: z.string(),
@@ -216,6 +259,13 @@ export const AppDtoSchema = z.object({
   size: z.number().int().nonnegative().nullable(),
   minOSVersion: z.string().nullable(),
   downloadOptions: z.array(AppDownloadOptionSchema),
+  versions: z.array(AppVersionBuildSchema).default([]),
+  firstSeenAt: z.string().nullable().default(null),
+  lastSeenAt: z.string().nullable().default(null),
+  metadataUpdatedAt: z.string().nullable().default(null),
+  lastUpdatedAt: z.string().nullable().default(null),
+  canonicalId: z.string().nullable().default(null),
+  canonicalStatus: CanonicalAppStatusSchema.default("active"),
   appStore: AppStoreMetadataSchema.nullable().optional()
 });
 
@@ -237,7 +287,75 @@ export const AppCategoryFacetSchema = z.object({
 export const SitemapAppSchema = z.object({
   id: z.string(),
   bundleIdentifier: z.string().nullable(),
-  versionDate: z.string().nullable()
+  versionDate: z.string().nullable(),
+  metadataUpdatedAt: z.string().nullable().default(null),
+  versions: z.array(z.string()).default([])
+});
+
+export const UpdateEventSchema = z.object({
+  id: z.string(),
+  type: z.enum(["new", "version"]),
+  occurredAt: z.string(),
+  app: AppDtoSchema,
+  version: z.string().nullable(),
+  title: z.string(),
+  summary: z.string().nullable()
+});
+
+export const ArchiveSummarySchema = z.object({
+  kind: z.enum(["week", "month"]),
+  key: z.string(),
+  from: z.string(),
+  to: z.string(),
+  eventCount: z.number().int().nonnegative()
+});
+
+export const UpdatesResponseSchema = z.object({
+  events: z.array(UpdateEventSchema),
+  pagination: PaginationSchema
+});
+
+export const ArchivesResponseSchema = z.object({
+  weeks: z.array(ArchiveSummarySchema),
+  months: z.array(ArchiveSummarySchema)
+});
+
+export const VersionsResponseSchema = z.object({
+  app: AppDtoSchema,
+  versions: z.array(AppVersionSchema)
+});
+
+export const VersionResponseSchema = z.object({
+  app: AppDtoSchema,
+  version: AppVersionSchema
+});
+
+export const RecommendationSectionSchema = z.object({
+  id: z.enum(["related", "similar", "also-downloaded", "same-developer", "same-repository"]),
+  title: z.string(),
+  apps: z.array(AppDtoSchema)
+});
+
+export const RecommendationsResponseSchema = z.object({
+  sections: z.array(RecommendationSectionSchema)
+});
+
+export const CollectionResponseSchema = z.object({
+  slug: CollectionSlugSchema,
+  title: z.string(),
+  description: z.string(),
+  methodology: z.string(),
+  apps: z.array(AppDtoSchema)
+});
+
+export const AppStatusResponseSchema = z.object({
+  status: CanonicalAppStatusSchema,
+  requestedId: z.string(),
+  canonicalId: z.string().nullable(),
+  replacementId: z.string().nullable(),
+  app: AppDtoSchema.nullable(),
+  missingSince: z.string().nullable(),
+  removedAt: z.string().nullable()
 });
 
 export const SourcesResponseSchema = z.object({
@@ -328,6 +446,8 @@ export type DeveloperSlugParam = z.infer<typeof DeveloperSlugParamSchema>;
 export type AppIdParam = z.infer<typeof AppIdParamSchema>;
 export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
 export type DownloadQuery = z.infer<typeof DownloadQuerySchema>;
+export type UpdatesQuery = z.infer<typeof UpdatesQuerySchema>;
+export type CollectionSlug = z.infer<typeof CollectionSlugSchema>;
 export type DownloadStatsQuery = z.infer<typeof DownloadStatsQuerySchema>;
 export type AppCategory = z.infer<typeof AppCategorySchema>;
 export type DerivedAppCategory = z.infer<typeof DerivedAppCategorySchema>;
@@ -338,11 +458,23 @@ export type SearchAppsQuery = z.infer<typeof SearchAppsQuerySchema>;
 export type SourceDto = z.infer<typeof SourceDtoSchema>;
 export type DeveloperDto = z.infer<typeof DeveloperDtoSchema>;
 export type AppDownloadOption = z.infer<typeof AppDownloadOptionSchema>;
+export type AppVersionBuild = z.infer<typeof AppVersionBuildSchema>;
+export type AppVersion = z.infer<typeof AppVersionSchema>;
+export type CanonicalAppStatus = z.infer<typeof CanonicalAppStatusSchema>;
 export type AppStoreMetadata = z.infer<typeof AppStoreMetadataSchema>;
 export type AppDto = z.infer<typeof AppDtoSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 export type AppCategoryFacet = z.infer<typeof AppCategoryFacetSchema>;
 export type SitemapApp = z.infer<typeof SitemapAppSchema>;
+export type UpdateEvent = z.infer<typeof UpdateEventSchema>;
+export type ArchiveSummary = z.infer<typeof ArchiveSummarySchema>;
+export type UpdatesResponse = z.infer<typeof UpdatesResponseSchema>;
+export type ArchivesResponse = z.infer<typeof ArchivesResponseSchema>;
+export type VersionsResponse = z.infer<typeof VersionsResponseSchema>;
+export type VersionResponse = z.infer<typeof VersionResponseSchema>;
+export type RecommendationsResponse = z.infer<typeof RecommendationsResponseSchema>;
+export type CollectionResponse = z.infer<typeof CollectionResponseSchema>;
+export type AppStatusResponse = z.infer<typeof AppStatusResponseSchema>;
 export type SourcesResponse = z.infer<typeof SourcesResponseSchema>;
 export type DevelopersResponse = z.infer<typeof DevelopersResponseSchema>;
 export type AppsResponse = z.infer<typeof AppsResponseSchema>;

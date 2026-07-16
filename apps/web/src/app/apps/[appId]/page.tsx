@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { AppDto } from "@iappstores/contracts";
 import { AppDetailAnalytics } from "@/components/app-detail-analytics";
 import { AppCard, AppDetailsContent } from "@/components/app-card";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchApp, fetchApps } from "@/lib/api";
+import { fetchApp, fetchRecommendations } from "@/lib/api";
+import { formatDate } from "@/lib/freshness";
 import { getAbsoluteUrl } from "@/lib/site";
 import {
   CATEGORY_LABELS,
@@ -76,11 +77,9 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
 export default async function AppPage({ params }: AppPageProps) {
   const { appId } = await params;
   const app = await getAppOrNotFound(appId);
-  const relatedResponse = await fetchApps({ category: app.category, pageSize: 12 }).catch(() => null);
-  const relatedApps =
-    relatedResponse?.apps
-      .filter((candidate) => getShareId(candidate).toLowerCase() !== getShareId(app).toLowerCase())
-      .slice(0, 8) ?? [];
+  const canonicalShareId = getShareId(app);
+  if (appId.toLowerCase() !== canonicalShareId.toLowerCase()) permanentRedirect(`/apps/${encodeURIComponent(canonicalShareId)}`);
+  const recommendations = await fetchRecommendations(appId).catch(() => ({ sections: [] }));
   const name = getAppDisplayName(app);
   const shareUrl = getAbsoluteUrl(`/apps/${encodeURIComponent(getShareId(app))}`);
   const developerName = app.appStore?.developerName ?? app.developerName;
@@ -93,6 +92,8 @@ export default async function AppPage({ params }: AppPageProps) {
     applicationCategory: CATEGORY_LABELS[app.category],
     operatingSystem: app.minOSVersion ? `iOS ${app.minOSVersion}+` : "iOS",
     softwareVersion: app.latestVersion ?? app.appStore?.version ?? undefined,
+    dateModified: app.metadataUpdatedAt ?? app.lastUpdatedAt ?? undefined,
+    releaseNotes: app.versionDescription ?? app.appStore?.releaseNotes ?? undefined,
     description: getAppDescription(app, 500),
     image: getAbsoluteUrl(getAppImage(app)),
     screenshot: screenshot ?? undefined,
@@ -151,6 +152,8 @@ export default async function AppPage({ params }: AppPageProps) {
               </Button>
             ) : null}
           </div>
+          <p className="mt-4 text-sm text-muted-foreground">Last updated: <time dateTime={app.lastUpdatedAt ?? undefined}>{formatDate(app.lastUpdatedAt)}</time></p>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm"><Link className="font-medium text-primary hover:underline" href={`${getAppPath(app)}/versions`}>Version history</Link><Link className="font-medium text-primary hover:underline" href={`${getAppPath(app)}/changelog`}>Changelog</Link></div>
         </section>
 
         <AppCard app={app} showScreenshotHero={false} showShareLink={false} />
@@ -164,21 +167,7 @@ export default async function AppPage({ params }: AppPageProps) {
           </CardContent>
         </Card>
 
-        {relatedApps.length > 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Similar apps</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2">
-              {relatedApps.map((relatedApp) => (
-                <Link key={relatedApp.id} className="rounded-md p-2 text-sm hover:bg-muted/60" href={getAppPath(relatedApp)}>
-                  <span className="font-medium text-foreground">{getAppDisplayName(relatedApp)}</span>
-                  <span className="block text-xs text-muted-foreground">{relatedApp.sourceName}</span>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
-        ) : null}
+        {recommendations.sections.filter((section) => section.apps.length > 0).map((section) => <Card key={section.id}><CardHeader><CardTitle>{section.title}</CardTitle></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2">{section.apps.map((relatedApp) => <Link key={relatedApp.id} className="rounded-md p-2 text-sm hover:bg-muted/60" href={getAppPath(relatedApp)}><span className="font-medium text-foreground">{getAppDisplayName(relatedApp)}</span><span className="block text-xs text-muted-foreground">{relatedApp.sourceName}</span></Link>)}</CardContent></Card>)}
       </div>
     </main>
   );
