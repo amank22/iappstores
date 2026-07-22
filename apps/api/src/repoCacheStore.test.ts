@@ -48,7 +48,14 @@ const app: AppDto = {
       size: 1234,
       minOSVersion: "15.0"
     }
-  ]
+  ],
+  versions: [],
+  firstSeenAt: null,
+  lastSeenAt: null,
+  metadataUpdatedAt: null,
+  lastUpdatedAt: null,
+  canonicalId: null,
+  canonicalStatus: "active"
 };
 
 let tempDir: string;
