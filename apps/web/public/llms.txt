@@ -15,6 +15,20 @@ Important notes:
 - [Sitemap](https://iappstores.com/sitemap.xml): Discover public app detail pages generated from indexed bundle identifiers.
 - [Robots](https://iappstores.com/robots.txt): Crawling guidance for the site.
 
+## Markdown for Agents
+
+Request the home page or an app detail page with `Accept: text/markdown` to receive a clean Markdown representation instead of HTML. Responses include `Content-Type: text/markdown; charset=utf-8` and `Vary: Accept`.
+
+```sh
+curl -H "Accept: text/markdown" https://iappstores.com/
+curl -H "Accept: text/markdown" https://iappstores.com/apps/com.example.bundle
+```
+
+## Agent Discovery
+
+- [A2A Agent Card](https://iappstores.com/.well-known/agent-card.json): Agent discovery metadata for the read-only catalog/search interface.
+- [API Catalog](https://iappstores.com/.well-known/api-catalog): RFC 9727 API discovery linkset.
+
 ## API
 
 - [Sources API](https://iappstores.com/api/sources): JSON list of indexed repository sources.
