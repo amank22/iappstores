@@ -168,7 +168,7 @@ app.use("/api", (_req, res, next) => {
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
-    service: "protectedgeadvisory-api"
+    service: "iappstores-api"
   });
 });
 
@@ -371,7 +371,7 @@ const COLLECTIONS = {
   "best-music-apps": { title: "Best Music Apps", description: "Top music IPA listings ranked by quality, freshness, availability, and demand.", category: "music" },
   "best-productivity-apps": { title: "Best Productivity Apps", description: "Top productivity IPA listings ranked by quality, freshness, availability, and demand.", category: "productivity" },
   "trending-apps": { title: "Trending Apps", description: "Apps receiving the most recent non-failing download activity.", category: null },
-  "new-apps": { title: "New Apps", description: "Apps recently observed by ProtectedGadvisory for the first time.", category: null },
+  "new-apps": { title: "New Apps", description: "Apps recently observed by iappstores for the first time.", category: null },
   "most-downloaded": { title: "Most Downloaded Apps", description: "Apps with the most recorded non-failing download attempts.", category: null },
   "ios-26-compatible": { title: "iOS 26 Compatible Apps", description: "Metadata-based listings whose stated minimum iOS version is 26.0 or earlier; compatibility is not device-tested.", category: null }
 } as const;
@@ -674,5 +674,5 @@ app.get("/api/search", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`ProtectedGadvisory API listening on http://localhost:${port}`);
+  console.log(`iappstores API listening on http://localhost:${port}`);
 });

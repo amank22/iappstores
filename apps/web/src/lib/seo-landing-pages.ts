@@ -39,7 +39,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       "Browse iOS IPA download listings from AltStore and SideStore-compatible repositories with source notes, versions, bundle IDs, and compatibility details.",
     featuredCategory: "recent",
     intro:
-      "Use ProtectedGadvisory as a searchable IPA download index before you open an external source. The site groups duplicate bundle identifiers, keeps repository notes visible, and points download buttons back to the original source URLs.",
+      "Use iappstores as a searchable IPA download index before you open an external source. The site groups duplicate bundle identifiers, keeps repository notes visible, and points download buttons back to the original source URLs.",
     primaryCta: {
       label: "Browse IPA downloads",
       href: "/"
@@ -52,7 +52,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         heading: "Find IPA listings without jumping between repositories",
         body:
-          "AltStore and SideStore-compatible repositories often publish app metadata in separate JSON feeds. ProtectedGadvisory normalizes those feeds into searchable app cards so you can compare names, bundle identifiers, source repositories, latest versions, minimum iOS requirements, and available download options in one place."
+          "AltStore and SideStore-compatible repositories often publish app metadata in separate JSON feeds. iappstores normalizes those feeds into searchable app cards so you can compare names, bundle identifiers, source repositories, latest versions, minimum iOS requirements, and available download options in one place."
       },
       {
         heading: "Compare sources before downloading",
@@ -62,14 +62,14 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         heading: "Use the index as discovery, not a safety guarantee",
         body:
-          "ProtectedGadvisory does not host IPA files, modify app packages, or review binaries for malware or privacy impact. Treat every third-party IPA as software from an external source and only install apps from repositories you trust."
+          "iappstores does not host IPA files, modify app packages, or review binaries for malware or privacy impact. Treat every third-party IPA as software from an external source and only install apps from repositories you trust."
       }
     ],
     faqs: [
       {
-        question: "Does ProtectedGadvisory host IPA files?",
+        question: "Does iappstores host IPA files?",
         answer:
-          "No. ProtectedGadvisory indexes repository metadata and links to original source download URLs when a repository provides them."
+          "No. iappstores indexes repository metadata and links to original source download URLs when a repository provides them."
       },
       {
         question: "What should I check before using an IPA download?",
@@ -103,7 +103,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       "Search iOS IPA app listings by name, category, source, developer, bundle ID, and iOS compatibility across indexed repositories.",
     featuredCategory: "recent",
     intro:
-      "The iOS IPA ecosystem is spread across independent repositories. ProtectedGadvisory helps you search those repositories, compare metadata, and open the original source download when you decide a listing is worth checking.",
+      "The iOS IPA ecosystem is spread across independent repositories. iappstores helps you search those repositories, compare metadata, and open the original source download when you decide a listing is worth checking.",
     primaryCta: {
       label: "Search iOS IPA apps",
       href: "/"
@@ -164,10 +164,10 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
     eyebrow: "AltStore repositories",
     title: "AltStore Repositories and IPA App Listings",
     description:
-      "Browse AltStore-compatible repository metadata, app listings, categories, source notes, and IPA download options indexed by ProtectedGadvisory.",
+      "Browse AltStore-compatible repository metadata, app listings, categories, source notes, and IPA download options indexed by iappstores.",
     featuredCategory: "tools",
     intro:
-      "AltStore-compatible repositories publish structured metadata for apps and download options. ProtectedGadvisory turns those feeds into browsable repository, app, developer, and category pages.",
+      "AltStore-compatible repositories publish structured metadata for apps and download options. iappstores turns those feeds into browsable repository, app, developer, and category pages.",
     primaryCta: {
       label: "Browse repositories",
       href: "/repositories"
@@ -185,19 +185,19 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         heading: "App pages group duplicate bundle IDs",
         body:
-          "When the same app appears across multiple repositories, ProtectedGadvisory groups matching bundle identifiers where possible. Grouped download options make it easier to compare source names and version data."
+          "When the same app appears across multiple repositories, iappstores groups matching bundle identifiers where possible. Grouped download options make it easier to compare source names and version data."
       },
       {
         heading: "Use official AltStore instructions for setup",
         body:
-          "ProtectedGadvisory is an app discovery index, not an AltStore installer. For installation, signing, refresh limits, and current requirements, use the official AltStore project documentation."
+          "iappstores is an app discovery index, not an AltStore installer. For installation, signing, refresh limits, and current requirements, use the official AltStore project documentation."
       }
     ],
     faqs: [
       {
-        question: "Is ProtectedGadvisory an AltStore repository?",
+        question: "Is iappstores an AltStore repository?",
         answer:
-          "No. ProtectedGadvisory indexes third-party repository metadata and links back to source repositories and source download URLs."
+          "No. iappstores indexes third-party repository metadata and links back to source repositories and source download URLs."
       },
       {
         question: "Can I browse apps by repository?",
@@ -231,7 +231,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       "Explore SideStore-compatible IPA repository listings, source notes, app metadata, and external download options in one searchable index.",
     featuredCategory: "media",
     intro:
-      "SideStore users often discover apps through repository feeds. ProtectedGadvisory helps organize those feeds into searchable app and repository pages while keeping the original source context visible.",
+      "SideStore users often discover apps through repository feeds. iappstores helps organize those feeds into searchable app and repository pages while keeping the original source context visible.",
     primaryCta: {
       label: "Explore repositories",
       href: "/repositories"
@@ -244,7 +244,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         heading: "Browse compatible repository metadata",
         body:
-          "Many indexed sources use metadata formats understood by sideloading tools. ProtectedGadvisory reads that metadata and exposes app names, version details, categories, icons, screenshots, and download options when present."
+          "Many indexed sources use metadata formats understood by sideloading tools. iappstores reads that metadata and exposes app names, version details, categories, icons, screenshots, and download options when present."
       },
       {
         heading: "Find apps even when source names differ",
@@ -252,9 +252,9 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
           "Repository maintainers may use different titles, subtitles, or notes for the same app. Search and grouped app pages help you find related listings without manually opening every repository feed."
       },
       {
-        heading: "Confirm setup details outside ProtectedGadvisory",
+        heading: "Confirm setup details outside iappstores",
         body:
-          "SideStore setup requirements and refresh behavior can change. Use ProtectedGadvisory to discover app metadata, then rely on the official SideStore project for installation and usage instructions."
+          "SideStore setup requirements and refresh behavior can change. Use iappstores to discover app metadata, then rely on the official SideStore project for installation and usage instructions."
       }
     ],
     faqs: [
@@ -266,7 +266,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         question: "Can I compare SideStore and AltStore options?",
         answer:
-          "Yes. ProtectedGadvisory indexes compatible repository metadata broadly, so you can compare app listings and source notes before choosing a sideloading workflow."
+          "Yes. iappstores indexes compatible repository metadata broadly, so you can compare app listings and source notes before choosing a sideloading workflow."
       }
     ],
     relatedLinks: [
@@ -295,7 +295,7 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       "Find iPhone IPA app listings with source repository notes, bundle identifiers, version dates, screenshots, and minimum iOS compatibility when available.",
     featuredCategory: "games",
     intro:
-      "Before opening an iPhone IPA download link, use ProtectedGadvisory to check the app metadata that repositories publish: source, version, bundle ID, screenshots, descriptions, and compatibility fields.",
+      "Before opening an iPhone IPA download link, use iappstores to check the app metadata that repositories publish: source, version, bundle ID, screenshots, descriptions, and compatibility fields.",
     primaryCta: {
       label: "Find iPhone IPA apps",
       href: "/"
@@ -318,19 +318,19 @@ export const SEO_LANDING_PAGES: SeoLandingPage[] = [
       {
         heading: "Understand what a click means",
         body:
-          "Clicking download opens the source-provided URL through ProtectedGadvisory' same-origin wrapper for analytics and basic link checks. The actual IPA file remains hosted by the original source, not by ProtectedGadvisory."
+          "Clicking download opens the source-provided URL through iappstores' same-origin wrapper for analytics and basic link checks. The actual IPA file remains hosted by the original source, not by iappstores."
       }
     ],
     faqs: [
       {
-        question: "Can ProtectedGadvisory confirm an iPhone IPA install completed?",
+        question: "Can iappstores confirm an iPhone IPA install completed?",
         answer:
-          "No. The site can track that a download link was clicked, but browser downloads and installs happen outside ProtectedGadvisory."
+          "No. The site can track that a download link was clicked, but browser downloads and installs happen outside iappstores."
       },
       {
         question: "Why do some apps have multiple download options?",
         answer:
-          "Multiple repositories can publish metadata for the same bundle identifier. ProtectedGadvisory groups those options so you can compare sources."
+          "Multiple repositories can publish metadata for the same bundle identifier. iappstores groups those options so you can compare sources."
       }
     ],
     relatedLinks: [

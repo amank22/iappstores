@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     const result = state.query ? await searchApps(state.query, options) : await fetchApps(options);
     return markdownResponse(homeMarkdown(result, state.query));
   } catch {
-    return new Response("# ProtectedGadvisory\n\nRepository data is temporarily unavailable.", {
+    return new Response("# iappstores\n\nRepository data is temporarily unavailable.", {
       status: 503,
       headers: { "content-type": "text/markdown; charset=utf-8", vary: "Accept" }
     });

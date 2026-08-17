@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "iOS App Developers",
-  description: "Browse developers represented in ProtectedGadvisory IPA repository listings.",
+  description: "Browse developers represented in iappstores IPA repository listings.",
   alternates: {
     canonical: "/developers"
   },
   openGraph: {
-    title: "iOS App Developers | ProtectedGadvisory",
+    title: "iOS App Developers | iappstores",
     description: "Browse developers represented in indexed IPA repositories.",
     url: "/developers"
   }

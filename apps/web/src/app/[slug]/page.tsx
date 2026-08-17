@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/${page.slug}`
     },
     openGraph: {
-      title: `${page.title} | ProtectedGadvisory`,
+      title: `${page.title} | iappstores`,
       description: page.description,
       url: `/${page.slug}`,
       type: "article"
@@ -72,7 +72,7 @@ export default async function SeoLandingPage({ params }: PageProps) {
         mainEntityOfPage: pageUrl,
         publisher: {
           "@type": "Organization",
-          name: "ProtectedGadvisory",
+          name: "iappstores",
           url: getAbsoluteUrl("/")
         }
       },

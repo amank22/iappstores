@@ -21,30 +21,30 @@ type HomePageProps = {
 
 export const metadata: Metadata = {
   title: {
-    absolute: "ProtectedGadvisory - IPA Downloads & AltStore Repositories"
+    absolute: "iappstores - IPA Downloads & AltStore Repositories"
   },
   description: siteDescription,
   alternates: {
     canonical: "/"
   },
   openGraph: {
-    title: "ProtectedGadvisory - IPA Downloads & AltStore Repositories",
+    title: "iappstores - IPA Downloads & AltStore Repositories",
     description: siteDescription,
     url: "/",
-    siteName: "ProtectedGadvisory",
+    siteName: "iappstores",
     images: [
       {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "ProtectedGadvisory IPA repository browser"
+        alt: "iappstores IPA repository browser"
       }
     ],
     type: "website"
   },
   twitter: {
     card: "summary_large_image",
-    title: "ProtectedGadvisory - IPA Downloads & AltStore Repositories",
+    title: "iappstores - IPA Downloads & AltStore Repositories",
     description: siteDescription,
     images: ["/og.svg"]
   }

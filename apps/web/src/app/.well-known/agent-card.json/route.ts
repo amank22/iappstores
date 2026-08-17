@@ -2,7 +2,7 @@ import { getAbsoluteUrl } from "@/lib/site";
 
 export function GET(): Response {
   const card = {
-    name: "ProtectedGadvisory Catalog Agent",
+    name: "iappstores Catalog Agent",
     version: "1.0.0",
     description:
       "A read-only catalog interface for discovering and searching AltStore and SideStore-compatible iOS app repository metadata, source details, versions, and download options.",
@@ -14,7 +14,7 @@ export function GET(): Response {
       }
     ],
     provider: {
-      organization: "ProtectedGadvisory",
+      organization: "iappstores",
       url: getAbsoluteUrl("/")
     },
     documentationUrl: getAbsoluteUrl("/api-docs"),
@@ -54,7 +54,7 @@ export function GET(): Response {
     headers: {
       "content-type": "application/a2a+json; charset=utf-8",
       "cache-control": "public, max-age=3600",
-      etag: '"ProtectedGadvisory-agent-card-1.0.0"'
+      etag: '"iappstores-agent-card-1.0.0"'
     }
   });
 }

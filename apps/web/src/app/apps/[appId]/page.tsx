@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
       title: `${name} IPA Download`,
       description,
       url: path,
-      siteName: "ProtectedGadvisory",
+      siteName: "iappstores",
       images: [
         {
           url: image,

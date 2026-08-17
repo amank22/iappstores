@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/guides/${guide.slug}`
     },
     openGraph: {
-      title: `${guide.title} | ProtectedGadvisory`,
+      title: `${guide.title} | iappstores`,
       description: guide.description,
       url: `/guides/${guide.slug}`
     }
@@ -56,7 +56,7 @@ export default async function GuidePage({ params }: PageProps) {
         mainEntityOfPage: getAbsoluteUrl(`/guides/${guide.slug}`),
         publisher: {
           "@type": "Organization",
-          name: "ProtectedGadvisory",
+          name: "iappstores",
           url: getAbsoluteUrl("/")
         }
       },

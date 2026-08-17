@@ -3,7 +3,7 @@ import { getAbsoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Public API documentation",
-  description: "Reference for the public ProtectedGadvisory API."
+  description: "Reference for the public iappstores API."
 };
 
 const endpoints = [
@@ -22,7 +22,7 @@ const endpoints = [
 export default function ApiDocsPage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-5 py-10 text-foreground">
-      <h1 className="text-3xl font-bold">ProtectedGadvisory Public API</h1>
+      <h1 className="text-3xl font-bold">iappstores Public API</h1>
       <p className="mt-4 leading-7 text-muted-foreground">
         Public, read-mostly access to grouped iOS app repository metadata. Download URLs redirect to original third-party sources.
       </p>

@@ -100,7 +100,7 @@ export function getCategoryMetadata(category: IndexableCategory, page = 1) {
       canonical: path
     },
     openGraph: {
-      title: `${label}${pageSuffix} | ProtectedGadvisory`,
+      title: `${label}${pageSuffix} | iappstores`,
       description: CATEGORY_DESCRIPTIONS[category],
       url: path
     }

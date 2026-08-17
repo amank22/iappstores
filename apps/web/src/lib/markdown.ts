@@ -37,7 +37,7 @@ function appSummary(app: AppDto): string {
 }
 
 export function homeMarkdown(result: AppListResponse, query: string): string {
-  const title = query ? `Search results for ${query}` : "ProtectedGadvisory";
+  const title = query ? `Search results for ${query}` : "iappstores";
   const intro = query
     ? `Showing ${result.pagination.totalItems} matching iOS app repository listings.`
     : "Browse AltStore and SideStore-compatible iOS app repository listings.";
@@ -71,5 +71,5 @@ export function appMarkdown(app: AppDto): string {
 }
 
 export function unavailableMarkdown(pathname: string): string {
-  return `# ProtectedGadvisory\n\nA Markdown representation is not available for \`${pathname}\` yet. Use the [app catalog](${getAbsoluteUrl("/")}) or [llms.txt](${getAbsoluteUrl("/llms.txt")}) to discover agent-friendly resources.`;
+  return `# iappstores\n\nA Markdown representation is not available for \`${pathname}\` yet. Use the [app catalog](${getAbsoluteUrl("/")}) or [llms.txt](${getAbsoluteUrl("/llms.txt")}) to discover agent-friendly resources.`;
 }
