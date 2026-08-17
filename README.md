@@ -1,6 +1,6 @@
-# iappstores
+# ProtectedGadvisory
 
-`iappstores` is a small npm workspace with a Node/Express API and a Next.js frontend for browsing iOS app store repository sources.
+`ProtectedGadvisory` is a small npm workspace with a Node/Express API and a Next.js frontend for browsing iOS app store repository sources.
 
 The v1 source list is defined in code and starts with the full FastSign AltStore/SideStore-compatible repository:
 
@@ -34,8 +34,8 @@ The root `rebuild` script cleans and rebuilds packages in dependency order, star
 The Docker image runs both the Express API and the Next.js frontend in one container for simple Coolify deployment.
 
 ```sh
-docker build -t iappstores .
-docker run --rm -p 3000:3000 iappstores
+docker build -t protectedgeadvisory .
+docker run --rm -p 3000:3000 protectedgeadvisory
 ```
 
 The frontend is served on port `3000`. The API runs inside the same container on port `4000`, and Next.js proxies `/api/*` requests to it.
@@ -59,7 +59,7 @@ APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
 
 App Store enrichment uses Apple’s public lookup API by bundle ID. It serves cached metadata immediately and refreshes missing or expired entries slowly in the background to avoid rate limits. Repository text remains visible as IPA source notes because it often explains patched or unlocked builds.
 
-`SITE_URL` and `NEXT_PUBLIC_SITE_URL` are used for canonical URLs, Open Graph URLs, `robots.txt`, and `sitemap.xml`. Set both to your public Coolify domain in production. The GitHub Docker publishing workflow passes `https://iappstores.com` as a build argument so GHCR images are built with the production metadata base.
+`SITE_URL` and `NEXT_PUBLIC_SITE_URL` are used for canonical URLs, Open Graph URLs, `robots.txt`, and `sitemap.xml`. Set both to your public Coolify domain in production. The GitHub Docker publishing workflow passes `https://protectedgeadvisory.in` as a build argument so GHCR images are built with the production metadata base.
 
 For Coolify health checks, use:
 

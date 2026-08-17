@@ -6,7 +6,7 @@ export function GET(): Response {
   const document = {
     openapi: "3.1.0",
     info: {
-      title: "iappstores Public API",
+      title: "ProtectedGadvisory Public API",
       version: "1.0.0",
       description: "Public API for browsing iOS IPA repository metadata. Data is sourced from third-party repositories; download URLs are redirects to the original source."
     },

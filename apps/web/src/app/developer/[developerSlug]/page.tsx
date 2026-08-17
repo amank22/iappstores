@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     notFound();
   }
 
-  const description = `Browse ${developer.name} IPA app listings, categories, and repository sources indexed by iappstores.`;
+  const description = `Browse ${developer.name} IPA app listings, categories, and repository sources indexed by ProtectedGadvisory.`;
 
   return {
     title: `${developer.name} IPA Apps`,
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/developer/${encodeURIComponent(developer.slug)}`
     },
     openGraph: {
-      title: `${developer.name} IPA Apps | iappstores`,
+      title: `${developer.name} IPA Apps | ProtectedGadvisory`,
       description,
       url: `/developer/${encodeURIComponent(developer.slug)}`
     }

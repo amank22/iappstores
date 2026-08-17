@@ -26,18 +26,18 @@ export const GUIDES: Guide[] = [
       {
         heading: "Before installing",
         body:
-          "Check the official AltStore instructions for the current desktop requirements, supported iOS versions, and refresh behavior. Requirements can change, so use iappstores as an app discovery index and the official project as the installation source of truth."
+          "Check the official AltStore instructions for the current desktop requirements, supported iOS versions, and refresh behavior. Requirements can change, so use ProtectedGadvisory as an app discovery index and the official project as the installation source of truth."
       },
       {
         heading: "Finding apps",
         body:
-          "After AltStore is set up, use category, repository, and app pages on iappstores to compare available IPA listings, source notes, version dates, and compatibility fields before opening an external download source."
+          "After AltStore is set up, use category, repository, and app pages on ProtectedGadvisory to compare available IPA listings, source notes, version dates, and compatibility fields before opening an external download source."
       }
     ],
     faqs: [
       {
-        question: "Does iappstores install AltStore for me?",
-        answer: "No. iappstores indexes repository metadata and links to source pages. Follow the official AltStore project for installation."
+        question: "Does ProtectedGadvisory install AltStore for me?",
+        answer: "No. ProtectedGadvisory indexes repository metadata and links to source pages. Follow the official AltStore project for installation."
       },
       {
         question: "Can AltStore install every IPA file?",
@@ -58,12 +58,12 @@ export const GUIDES: Guide[] = [
       {
         heading: "Use official setup instructions",
         body:
-          "Because SideStore setup requirements change over time, always use the official SideStore documentation for installation steps. iappstores helps with discovery after setup by organizing app and repository metadata."
+          "Because SideStore setup requirements change over time, always use the official SideStore documentation for installation steps. ProtectedGadvisory helps with discovery after setup by organizing app and repository metadata."
       },
       {
         heading: "Browsing SideStore-compatible repositories",
         body:
-          "Many repositories indexed by iappstores are AltStore or SideStore compatible. Repository pages show source names, app listings, categories, and download options when the source metadata includes them."
+          "Many repositories indexed by ProtectedGadvisory are AltStore or SideStore compatible. Repository pages show source names, app listings, categories, and download options when the source metadata includes them."
       }
     ],
     faqs: [
@@ -72,8 +72,8 @@ export const GUIDES: Guide[] = [
         answer: "No. They are related sideloading tools, but setup and refresh behavior can differ."
       },
       {
-        question: "Does iappstores host SideStore repositories?",
-        answer: "No. iappstores indexes third-party repository metadata and links back to source URLs."
+        question: "Does ProtectedGadvisory host SideStore repositories?",
+        answer: "No. ProtectedGadvisory indexes third-party repository metadata and links back to source URLs."
       }
     ]
   },
@@ -90,12 +90,12 @@ export const GUIDES: Guide[] = [
       {
         heading: "Why repositories list IPA files",
         body:
-          "AltStore-compatible repositories publish metadata such as app name, bundle identifier, versions, download URLs, screenshots, and minimum iOS requirements. iappstores reads that metadata and turns it into searchable app pages."
+          "AltStore-compatible repositories publish metadata such as app name, bundle identifier, versions, download URLs, screenshots, and minimum iOS requirements. ProtectedGadvisory reads that metadata and turns it into searchable app pages."
       },
       {
         heading: "What to check before downloading",
         body:
-          "Review the source repository, version date, minimum iOS version, developer name, and repository notes. iappstores does not verify or modify IPA files, so the original source remains important."
+          "Review the source repository, version date, minimum iOS version, developer name, and repository notes. ProtectedGadvisory does not verify or modify IPA files, so the original source remains important."
       }
     ],
     faqs: [
@@ -122,7 +122,7 @@ export const GUIDES: Guide[] = [
       {
         heading: "Check app metadata first",
         body:
-          "Before opening an external download, compare the app page fields on iappstores: bundle ID, version, update date, source repository, minimum iOS version, screenshots, and repository notes."
+          "Before opening an external download, compare the app page fields on ProtectedGadvisory: bundle ID, version, update date, source repository, minimum iOS version, screenshots, and repository notes."
       },
       {
         heading: "Keep sources organized",
@@ -136,8 +136,8 @@ export const GUIDES: Guide[] = [
         answer: "Some workflows do and some may not. Check the current instructions for the sideloading tool you use."
       },
       {
-        question: "Can iappstores tell me if an IPA is safe?",
-        answer: "No. iappstores indexes metadata and source links; it does not audit the binary contents of IPA files."
+        question: "Can ProtectedGadvisory tell me if an IPA is safe?",
+        answer: "No. ProtectedGadvisory indexes metadata and source links; it does not audit the binary contents of IPA files."
       }
     ]
   },
@@ -157,9 +157,9 @@ export const GUIDES: Guide[] = [
           "The practical difference is setup and refresh workflow. Those details can change, so compare the official documentation for each project before choosing one."
       },
       {
-        heading: "How iappstores fits",
+        heading: "How ProtectedGadvisory fits",
         body:
-          "iappstores is not a replacement for either tool. It helps users browse app listings, categories, repositories, and metadata before they decide what to install with their preferred sideloading setup."
+          "ProtectedGadvisory is not a replacement for either tool. It helps users browse app listings, categories, repositories, and metadata before they decide what to install with their preferred sideloading setup."
       }
     ],
     faqs: [

@@ -16,7 +16,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  SITE_URL: https://iappstores.com
+  SITE_URL: https://protectedgeadvisory.in
   COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
   COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
 

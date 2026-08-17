@@ -15,9 +15,9 @@ export function SiteHeader() {
     <header className="border-b border-foreground/10 bg-background/95">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <Link href="/" className="flex w-fit items-center gap-2">
-          <img src="/logo.svg" alt="iappstores logo" className="h-8 w-8 rounded-lg ring-1 ring-foreground/10" />
+          <img src="/logo.svg" alt="ProtectedGadvisory logo" className="h-8 w-8 rounded-lg ring-1 ring-foreground/10" />
           <div>
-            <div className="text-sm font-semibold tracking-tight">iappstores</div>
+            <div className="text-sm font-semibold tracking-tight">ProtectedGadvisory</div>
             <div className="text-xs text-muted-foreground">IPA repository browser</div>
           </div>
         </Link>

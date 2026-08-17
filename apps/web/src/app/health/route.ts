@@ -1,6 +1,6 @@
 export function GET() {
   return Response.json({
     ok: true,
-    service: "iappstores-web"
+    service: "protectedgeadvisory-web"
   });
 }

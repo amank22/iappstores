@@ -18,12 +18,12 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Browse IPA Apps",
-  description: "Browse iappstores IPA app pages with recently updated app cards, categories, repositories, and alphabetical navigation.",
+  description: "Browse ProtectedGadvisory IPA app pages with recently updated app cards, categories, repositories, and alphabetical navigation.",
   alternates: {
     canonical: "/apps"
   },
   openGraph: {
-    title: "Browse IPA Apps | iappstores",
+    title: "Browse IPA Apps | ProtectedGadvisory",
     description: "Browse crawlable iOS IPA app listings from indexed AltStore and SideStore repositories.",
     url: "/apps"
   }

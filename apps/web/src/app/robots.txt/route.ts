@@ -3,7 +3,7 @@ import { getAbsoluteUrl, getSiteUrl } from "@/lib/site";
 export const dynamic = "force-dynamic";
 
 export function GET(): Response {
-  const body = `# iappstores crawler policy
+  const body = `# ProtectedGadvisory crawler policy
 # Search indexing is permitted. AI model training and AI-input use are not.
 User-Agent: *
 Content-Signal: ai-train=no, search=yes, ai-input=no

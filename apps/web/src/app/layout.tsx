@@ -17,8 +17,8 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "iappstores - IPA Downloads & AltStore Repositories",
-    template: "%s | iappstores"
+    default: "ProtectedGadvisory - IPA Downloads & AltStore Repositories",
+    template: "%s | ProtectedGadvisory"
   },
   description: siteDescription,
   keywords: [
@@ -32,23 +32,23 @@ export const metadata: Metadata = {
     "iOS app repositories"
   ],
   openGraph: {
-    title: "iappstores - IPA Downloads & AltStore Repositories",
+    title: "ProtectedGadvisory - IPA Downloads & AltStore Repositories",
     description: siteDescription,
     url: "/",
-    siteName: "iappstores",
+    siteName: "ProtectedGadvisory",
     images: [
       {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "iappstores IPA repository browser"
+        alt: "ProtectedGadvisory IPA repository browser"
       }
     ],
     type: "website"
   },
   twitter: {
     card: "summary_large_image",
-    title: "iappstores - IPA Downloads & AltStore Repositories",
+    title: "ProtectedGadvisory - IPA Downloads & AltStore Repositories",
     description: siteDescription,
     images: ["/og.svg"]
   },
