@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "iappstores-ai-bot-tracker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "routes": [
+    { "pattern": "iappstores.com/*", "zone_name": "iappstores.com" },
+    { "pattern": "www.iappstores.com/*", "zone_name": "iappstores.com" }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
