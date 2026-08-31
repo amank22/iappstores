@@ -46,12 +46,38 @@ function searchIndexAvailable(): boolean {
       );
     `);
     searchIndexReady = true;
+    backfillSearchIndexIfEmpty();
   } catch (error) {
     console.warn("FTS5 is not available in this node:sqlite build; falling back to linear search.", error);
     searchIndexReady = false;
   }
 
   return searchIndexReady;
+}
+
+function backfillSearchIndexIfEmpty(): void {
+  const { count } = db().prepare(`SELECT COUNT(*) AS count FROM catalog_search`).get() as { count: number };
+  if (count > 0) {
+    return;
+  }
+
+  const rows = db().prepare(`SELECT canonical_id, app_json FROM catalog_apps WHERE status != 'removed'`).all() as Array<{
+    canonical_id: string;
+    app_json: string;
+  }>;
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  console.log(`Backfilling search index for ${rows.length} existing catalog app${rows.length === 1 ? "" : "s"}...`);
+
+  for (const row of rows) {
+    const parsed = AppDtoSchema.safeParse(JSON.parse(row.app_json) as unknown);
+    if (parsed.success) {
+      upsertSearchIndex(row.canonical_id, parsed.data);
+    }
+  }
 }
 
 export function isSearchIndexAvailable(): boolean {

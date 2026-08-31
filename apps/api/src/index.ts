@@ -67,6 +67,7 @@ import { findSource, sourceToDto, SOURCES } from "./sources.js";
 import { translateText } from "./translateClient.js";
 import {
   closeCatalogStore,
+  isSearchIndexAvailable,
   readAppStatus,
   readAppVersions,
   readArchives,
@@ -80,6 +81,7 @@ const frontendOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
 initRepoCacheStore();
 initAppStoreCacheStore();
 initDownloadAnalyticsStore();
+isSearchIndexAvailable();
 startRepoRefreshWorker(SOURCES);
 process.on("exit", () => {
   closeRepoCacheStore();

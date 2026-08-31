@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import type { AppDto } from "@iappstores/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeCatalogStore, isSearchIndexAvailable, searchCatalogIds, syncSourceCatalog } from "./catalogStore.js";
@@ -130,5 +131,46 @@ describe("catalogStore full-text search", () => {
     // filter out "missing" apps either.
     syncSourceCatalog("test-source", [], 1);
     expect(searchCatalogIds("fading")).toContain("com.example.fading");
+  });
+
+  it("backfills the search index from pre-existing catalog rows written before FTS5 existed", () => {
+    // Simulate a database that already has catalog_apps rows from before the search
+    // index was introduced: write directly to catalog_apps via a raw connection,
+    // bypassing syncSourceCatalog/rebuildCanonical (and therefore upsertSearchIndex).
+    const app = makeApp({
+      id: "test-source:com.example.legacy",
+      bundleIdentifier: "com.example.legacy",
+      name: "Legacy Holdover App"
+    });
+    const decorated = { ...app, canonicalId: "com.example.legacy", canonicalStatus: "active" as const };
+
+    const raw = new DatabaseSync(process.env.REPO_CACHE_DB_PATH!);
+    raw.exec(`
+      CREATE TABLE IF NOT EXISTS catalog_apps (
+        canonical_id TEXT PRIMARY KEY,
+        app_json TEXT NOT NULL,
+        metadata_hash TEXT NOT NULL,
+        first_seen_at INTEGER NOT NULL,
+        last_seen_at INTEGER NOT NULL,
+        metadata_updated_at INTEGER NOT NULL,
+        missing_since INTEGER,
+        missing_count INTEGER NOT NULL DEFAULT 0,
+        removed_at INTEGER,
+        status TEXT NOT NULL DEFAULT 'active',
+        replacement_id TEXT
+      );
+    `);
+    raw
+      .prepare(
+        `INSERT INTO catalog_apps(canonical_id, app_json, metadata_hash, first_seen_at, last_seen_at, metadata_updated_at, status)
+         VALUES (?, ?, 'hash', 0, 0, 0, 'active')`
+      )
+      .run("com.example.legacy", JSON.stringify(decorated));
+    raw.close();
+
+    // No syncSourceCatalog call has happened yet in this process, so the search index
+    // has never been created or populated -- this is the first thing that touches it.
+    expect(isSearchIndexAvailable()).toBe(true);
+    expect(searchCatalogIds("legacy")).toContain("com.example.legacy");
   });
 });
