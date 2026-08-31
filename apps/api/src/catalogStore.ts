@@ -23,8 +23,40 @@ type VersionRow = { version: string; release_date: string | null; build_json: st
 type EventRow = { id: string; event_type: "new" | "version"; occurred_at: number; canonical_id: string; version: string | null; title: string; summary: string | null; app_json: string };
 
 let database: DatabaseSync | undefined;
+let searchIndexReady: boolean | undefined;
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
+
+function searchIndexAvailable(): boolean {
+  if (searchIndexReady !== undefined) {
+    return searchIndexReady;
+  }
+
+  try {
+    db().exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS catalog_search USING fts5(
+        canonical_id UNINDEXED,
+        name,
+        bundle_identifier,
+        developer_name,
+        subtitle,
+        description,
+        latest_version,
+        tokenize = 'porter unicode61 remove_diacritics 2'
+      );
+    `);
+    searchIndexReady = true;
+  } catch (error) {
+    console.warn("FTS5 is not available in this node:sqlite build; falling back to linear search.", error);
+    searchIndexReady = false;
+  }
+
+  return searchIndexReady;
+}
+
+export function isSearchIndexAvailable(): boolean {
+  return searchIndexAvailable();
+}
 
 function db(): DatabaseSync {
   if (!database?.isOpen) {
@@ -140,6 +172,88 @@ function readRow(id: string): CatalogRow | undefined {
   return db().prepare(`SELECT * FROM catalog_apps WHERE canonical_id = ?`).get(id) as CatalogRow | undefined;
 }
 
+function readRowsBatch(ids: string[]): Map<string, CatalogRow> {
+  const result = new Map<string, CatalogRow>();
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) {
+    return result;
+  }
+
+  const placeholders = uniqueIds.map(() => "?").join(",");
+  const rows = db()
+    .prepare(`SELECT * FROM catalog_apps WHERE canonical_id IN (${placeholders})`)
+    .all(...uniqueIds) as CatalogRow[];
+
+  for (const row of rows) {
+    result.set(row.canonical_id, row);
+  }
+
+  return result;
+}
+
+function upsertSearchIndex(id: string, app: AppDto): void {
+  if (!searchIndexAvailable()) {
+    return;
+  }
+
+  const text = (value: string | null | undefined) => value ?? "";
+  db().prepare(`DELETE FROM catalog_search WHERE canonical_id = ?`).run(id);
+  db()
+    .prepare(
+      `INSERT INTO catalog_search(canonical_id, name, bundle_identifier, developer_name, subtitle, description, latest_version)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(id, app.name, text(app.bundleIdentifier), text(app.developerName), text(app.subtitle), text(app.description), text(app.latestVersion));
+}
+
+function removeFromSearchIndex(id: string): void {
+  if (!searchIndexAvailable()) {
+    return;
+  }
+
+  db().prepare(`DELETE FROM catalog_search WHERE canonical_id = ?`).run(id);
+}
+
+const FTS5_SPECIAL_CHARS = /["*^:().]/g;
+
+function toMatchQuery(query: string): string | null {
+  const terms = query
+    .replace(FTS5_SPECIAL_CHARS, " ")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((term) => term.length > 0)
+    .slice(0, 8);
+
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return terms.map((term) => `"${term.replace(/"/g, '""')}"*`).join(" AND ");
+}
+
+export function searchCatalogIds(query: string, limit = 500): string[] {
+  if (!searchIndexAvailable()) {
+    return [];
+  }
+
+  const matchQuery = toMatchQuery(query);
+  if (!matchQuery) {
+    return [];
+  }
+
+  const rows = db()
+    .prepare(
+      `SELECT canonical_id, bm25(catalog_search, 3.0, 2.0, 2.0, 1.5, 1.0, 1.0) AS rank
+       FROM catalog_search
+       WHERE catalog_search MATCH ?
+       ORDER BY rank
+       LIMIT ?`
+    )
+    .all(matchQuery, limit) as Array<{ canonical_id: string; rank: number }>;
+
+  return rows.map((row) => row.canonical_id);
+}
+
 function rebuildCanonical(id: string, now: number): void {
   const snapshots = db().prepare(`SELECT app_json FROM catalog_source_apps WHERE canonical_id = ? AND active = 1`).all(id) as SnapshotRow[];
   const previous = readRow(id);
@@ -152,6 +266,9 @@ function rebuildCanonical(id: string, now: number): void {
       : previous.status;
     db().prepare(`UPDATE catalog_apps SET missing_since = ?, missing_count = ?, status = ?, removed_at = CASE WHEN ? = 'removed' THEN COALESCE(removed_at, ?) ELSE removed_at END WHERE canonical_id = ?`)
       .run(missingSince, missingCount, status, status, now, id);
+    if (status === "removed" && previous.status !== "removed") {
+      removeFromSearchIndex(id);
+    }
     return;
   }
 
@@ -175,6 +292,8 @@ function rebuildCanonical(id: string, now: number): void {
 
   db().prepare(`INSERT OR IGNORE INTO catalog_events(id,event_type,occurred_at,canonical_id,title) VALUES(?, 'new', ?, ?, ?)`)
     .run(`new:${id}`, firstSeen, id, `New app: ${grouped.name}`);
+
+  upsertSearchIndex(id, decorated);
 }
 
 export function syncSourceCatalog(ownerSourceId: string, apps: AppDto[], now = Date.now()): void {
@@ -225,8 +344,9 @@ export function syncSourceCatalog(ownerSourceId: string, apps: AppDto[], now = D
 }
 
 export function hydrateCatalogApps(apps: AppDto[]): AppDto[] {
+  const rowsById = readRowsBatch(apps.map((app) => canonicalId(app)));
   return apps.map((app) => {
-    const row = readRow(canonicalId(app));
+    const row = rowsById.get(canonicalId(app));
     return row ? decorate(app, row) : app;
   });
 }
@@ -318,4 +438,5 @@ export function readArchives(): { weeks: ArchiveSummary[]; months: ArchiveSummar
 export function closeCatalogStore(): void {
   if (database?.isOpen) database.close();
   database = undefined;
+  searchIndexReady = undefined;
 }
