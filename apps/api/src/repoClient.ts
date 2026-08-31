@@ -293,7 +293,6 @@ export async function getSourceApps(source: SourceDefinition, ttlMs = getCacheTt
   const sqliteCache = readSourceCache(source);
   if (sqliteCache) {
     const apps = recategorizeApps(sqliteCache.apps);
-    syncSourceCatalog(source.id, apps);
     hydrateMemoryFromSqlite({ ...sqliteCache, apps });
 
     if (sqliteCache.isExpired) {

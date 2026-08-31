@@ -88,9 +88,21 @@ async function getAppsForSources(sources: typeof SOURCES) {
   return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 }
 
+const GROUPED_APPS_CACHE_TTL_MS = 30_000;
+let groupedAppsCache: { expiresAt: number; promise: Promise<AppDto[]> } | undefined;
+
 async function getGroupedAppsForSources(sources: typeof SOURCES) {
-  const allApps = await getAppsForSources(sources);
-  return hydrateCatalogApps(groupAppsByBundleId(allApps));
+  if (groupedAppsCache && groupedAppsCache.expiresAt > Date.now()) {
+    return groupedAppsCache.promise;
+  }
+
+  const promise = getAppsForSources(sources).then((allApps) => hydrateCatalogApps(groupAppsByBundleId(allApps)));
+  groupedAppsCache = { expiresAt: Date.now() + GROUPED_APPS_CACHE_TTL_MS, promise };
+  promise.catch(() => {
+    groupedAppsCache = undefined;
+  });
+
+  return promise;
 }
 
 function sessionHash(sessionId: string | undefined): string | null {

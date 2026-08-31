@@ -102,6 +102,34 @@ export function readAppStoreCache(country: string, bundleId: string): AppStoreCa
   return row ? toCacheEntry(row) : null;
 }
 
+export function readAppStoreCacheBatch(country: string, bundleIds: string[]): Map<string, AppStoreCacheEntry> {
+  const result = new Map<string, AppStoreCacheEntry>();
+  const uniqueIds = [...new Set(bundleIds)];
+  if (uniqueIds.length === 0) {
+    return result;
+  }
+
+  const placeholders = uniqueIds.map(() => "?").join(",");
+  const rows = getDatabase()
+    .prepare(
+      `
+        SELECT country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at
+        FROM app_store_cache
+        WHERE country = ? AND bundle_id IN (${placeholders})
+      `
+    )
+    .all(country, ...uniqueIds) as AppStoreCacheRow[];
+
+  for (const row of rows) {
+    const entry = toCacheEntry(row);
+    if (entry) {
+      result.set(row.bundle_id, entry);
+    }
+  }
+
+  return result;
+}
+
 export function writeAppStoreCacheHit(
   country: string,
   bundleId: string,

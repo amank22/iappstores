@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AppDto, AppStoreMetadata } from "@iappstores/contracts";
 import {
   readAppStoreCache,
+  readAppStoreCacheBatch,
   writeAppStoreCacheError,
   writeAppStoreCacheHit,
   writeAppStoreCacheMiss
@@ -264,7 +265,11 @@ export function enrichAppsWithCachedAppStoreMetadata(apps: AppDto[], country = g
     return apps;
   }
 
-  const metadataByBundleId = new Map<string, AppStoreMetadata | null>();
+  const bundleIds = apps.flatMap((app) => {
+    const bundleId = app.bundleIdentifier?.trim();
+    return bundleId ? [bundleId] : [];
+  });
+  const cacheByBundleId = readAppStoreCacheBatch(country, bundleIds);
 
   return apps.map((app) => {
     const bundleId = app.bundleIdentifier?.trim();
@@ -272,15 +277,11 @@ export function enrichAppsWithCachedAppStoreMetadata(apps: AppDto[], country = g
       return app;
     }
 
-    let metadata = metadataByBundleId.get(bundleId);
-    if (metadata === undefined) {
-      const cache = readAppStoreCache(country, bundleId);
-      metadata = cache?.status === "hit" ? cache.metadata : null;
-      metadataByBundleId.set(bundleId, metadata);
+    const cache = cacheByBundleId.get(bundleId) ?? null;
+    const metadata = cache?.status === "hit" ? cache.metadata : null;
 
-      if (!cache || cache.isExpired) {
-        queueAppStoreLookup(bundleId, country);
-      }
+    if (!cache || cache.isExpired) {
+      queueAppStoreLookup(bundleId, country);
     }
 
     return metadata ? { ...app, appStore: metadata } : app;
