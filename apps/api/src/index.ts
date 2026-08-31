@@ -330,6 +330,59 @@ const COLLECTIONS = {
   "ios-26-compatible": { title: "iOS 26 Compatible Apps", description: "Metadata-based listings whose stated minimum iOS version is 26.0 or earlier; compatibility is not device-tested.", category: null }
 } as const;
 
+const DEFAULT_COLLECTION_CACHE_TTL_MINUTES = 60;
+const collectionCache = new Map<string, { expiresAt: number; promise: Promise<CollectionResponse> }>();
+
+function getCollectionCacheTtlMs(): number {
+  const configuredMinutes = Number(process.env.COLLECTION_CACHE_TTL_MINUTES);
+  const minutes = Number.isFinite(configuredMinutes) && configuredMinutes > 0 ? configuredMinutes : DEFAULT_COLLECTION_CACHE_TTL_MINUTES;
+  return minutes * 60_000;
+}
+
+async function buildCollection(slug: keyof typeof COLLECTIONS): Promise<CollectionResponse> {
+  const catalog = await getCatalog();
+  let apps = enrichAppsWithCachedAppStoreMetadata(catalog.apps);
+  const definition = COLLECTIONS[slug];
+  if (definition.category) apps = apps.filter((app) => app.category === definition.category);
+  if (slug === "ios-26-compatible") {
+    apps = apps.filter((app) => {
+      const value = Number.parseFloat(app.minOSVersion ?? "");
+      return Number.isFinite(value) && value <= 26;
+    });
+  }
+  const lifetime = readDownloadCounts();
+  const recent = readDownloadCounts(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const counts = slug === "trending-apps" ? recent : lifetime;
+  const maxDemand = Math.max(...apps.map((app) => downloadCountFor(app, counts)), 1);
+  apps.sort((a, b) => {
+    if (slug === "new-apps") return Date.parse(b.firstSeenAt ?? "") - Date.parse(a.firstSeenAt ?? "");
+    if (slug === "most-downloaded" || slug === "trending-apps") return downloadCountFor(b, counts) - downloadCountFor(a, counts) || freshness(b) - freshness(a);
+    return qualityScore(b, counts, maxDemand) - qualityScore(a, counts, maxDemand);
+  });
+  return {
+    slug,
+    title: definition.title,
+    description: definition.description,
+    methodology: slug.startsWith("best-") ? "35% demand, 25% freshness, 20% download availability, and 20% metadata completeness." : definition.description,
+    apps: apps.slice(0, 60)
+  };
+}
+
+function getCachedCollection(slug: keyof typeof COLLECTIONS): Promise<CollectionResponse> {
+  const cached = collectionCache.get(slug);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+
+  const promise = buildCollection(slug);
+  collectionCache.set(slug, { expiresAt: Date.now() + getCollectionCacheTtlMs(), promise });
+  promise.catch(() => {
+    collectionCache.delete(slug);
+  });
+
+  return promise;
+}
+
 app.get("/api/collections/:slug", async (req, res) => {
   const slug = CollectionSlugSchema.safeParse(req.params.slug);
   if (!slug.success) {
@@ -337,32 +390,7 @@ app.get("/api/collections/:slug", async (req, res) => {
     return;
   }
   try {
-    const catalog = await getCatalog();
-    let apps = enrichAppsWithCachedAppStoreMetadata(catalog.apps);
-    const definition = COLLECTIONS[slug.data];
-    if (definition.category) apps = apps.filter((app) => app.category === definition.category);
-    if (slug.data === "ios-26-compatible") {
-      apps = apps.filter((app) => {
-        const value = Number.parseFloat(app.minOSVersion ?? "");
-        return Number.isFinite(value) && value <= 26;
-      });
-    }
-    const lifetime = readDownloadCounts();
-    const recent = readDownloadCounts(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const counts = slug.data === "trending-apps" ? recent : lifetime;
-    const maxDemand = Math.max(...apps.map((app) => downloadCountFor(app, counts)), 1);
-    apps.sort((a, b) => {
-      if (slug.data === "new-apps") return Date.parse(b.firstSeenAt ?? "") - Date.parse(a.firstSeenAt ?? "");
-      if (slug.data === "most-downloaded" || slug.data === "trending-apps") return downloadCountFor(b, counts) - downloadCountFor(a, counts) || freshness(b) - freshness(a);
-      return qualityScore(b, counts, maxDemand) - qualityScore(a, counts, maxDemand);
-    });
-    const body: CollectionResponse = {
-      slug: slug.data,
-      title: definition.title,
-      description: definition.description,
-      methodology: slug.data.startsWith("best-") ? "35% demand, 25% freshness, 20% download availability, and 20% metadata completeness." : definition.description,
-      apps: apps.slice(0, 60)
-    };
+    const body = await getCachedCollection(slug.data);
     res.json(body);
   } catch (error) {
     sendError(res, 502, "collection_fetch_failed", "Could not build this collection.", { message: error instanceof Error ? error.message : String(error) });
