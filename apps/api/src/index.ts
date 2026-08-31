@@ -16,7 +16,6 @@ import {
   type AppResponse,
   type AppListResponse,
   type AppsResponse,
-  type DeveloperDto,
   type DevelopersResponse,
   type DownloadStatsResponse,
   type SearchResponse,
@@ -32,6 +31,14 @@ import {
 } from "@iappstores/contracts";
 import { enrichAppsWithCachedAppStoreMetadata } from "./appStoreClient.js";
 import { closeAppStoreCacheStore, initAppStoreCacheStore } from "./appStoreCacheStore.js";
+import {
+  appIdentity,
+  ensureMaterializedCatalog,
+  findAppById,
+  getMaterializedCatalog,
+  searchMaterializedCatalog,
+  type MaterializedCatalog
+} from "./catalogMaterializer.js";
 import {
   closeDownloadAnalyticsStore,
   initDownloadAnalyticsStore,
@@ -60,7 +67,6 @@ import { findSource, sourceToDto, SOURCES } from "./sources.js";
 import { translateText } from "./translateClient.js";
 import {
   closeCatalogStore,
-  hydrateCatalogApps,
   readAppStatus,
   readAppVersions,
   readArchives,
@@ -88,27 +94,8 @@ async function getAppsForSources(sources: typeof SOURCES) {
   return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 }
 
-const DEFAULT_GROUPED_APPS_CACHE_TTL_MINUTES = 360;
-let groupedAppsCache: { expiresAt: number; promise: Promise<AppDto[]> } | undefined;
-
-function getGroupedAppsCacheTtlMs(): number {
-  const configuredMinutes = Number(process.env.CATALOG_CACHE_TTL_MINUTES);
-  const minutes = Number.isFinite(configuredMinutes) && configuredMinutes > 0 ? configuredMinutes : DEFAULT_GROUPED_APPS_CACHE_TTL_MINUTES;
-  return minutes * 60_000;
-}
-
-async function getGroupedAppsForSources(sources: typeof SOURCES) {
-  if (groupedAppsCache && groupedAppsCache.expiresAt > Date.now()) {
-    return groupedAppsCache.promise;
-  }
-
-  const promise = getAppsForSources(sources).then((allApps) => hydrateCatalogApps(groupAppsByBundleId(allApps)));
-  groupedAppsCache = { expiresAt: Date.now() + getGroupedAppsCacheTtlMs(), promise };
-  promise.catch(() => {
-    groupedAppsCache = undefined;
-  });
-
-  return promise;
+async function getCatalog(): Promise<MaterializedCatalog> {
+  return getMaterializedCatalog() ?? ensureMaterializedCatalog(SOURCES);
 }
 
 function sessionHash(sessionId: string | undefined): string | null {
@@ -117,59 +104,8 @@ function sessionHash(sessionId: string | undefined): string | null {
   return createHmac("sha256", secret).update(sessionId).digest("hex");
 }
 
-function appIdentity(app: AppDto): string[] {
-  return [app.id, app.canonicalId ?? "", app.bundleIdentifier ?? "", app.bundleIdentifier ? `bundle:${app.bundleIdentifier.toLowerCase()}` : ""].filter(Boolean);
-}
-
-function findApp(apps: AppDto[], id: string): AppDto | undefined {
-  const lower = id.toLowerCase();
-  return apps.find((app) => appIdentity(app).some((value) => value.toLowerCase() === lower));
-}
-
 function attachAppStoreMetadata(apps: AppDto[], includeAppStore: boolean): AppDto[] {
   return includeAppStore ? enrichAppsWithCachedAppStoreMetadata(apps) : apps;
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-function getDeveloperName(app: AppDto): string | null {
-  return app.appStore?.developerName ?? app.developerName;
-}
-
-function getDevelopers(apps: AppDto[]): DeveloperDto[] {
-  const developers = new Map<string, { name: string; apps: AppDto[] }>();
-
-  for (const app of apps) {
-    const name = getDeveloperName(app);
-    if (!name) {
-      continue;
-    }
-
-    const slug = slugify(name);
-    if (!slug) {
-      continue;
-    }
-
-    const developer = developers.get(slug) ?? { name, apps: [] };
-    developer.apps.push(app);
-    developers.set(slug, developer);
-  }
-
-  return [...developers.entries()]
-    .map(([slug, developer]) => ({
-      slug,
-      name: developer.name,
-      appCount: developer.apps.length,
-      categories: [...new Set(developer.apps.map((app) => app.category))].sort(),
-      sourceNames: [...new Set(developer.apps.flatMap((app) => app.downloadOptions.map((option) => option.sourceName)))].sort()
-    }))
-    .sort((a, b) => b.appCount - a.appCount || a.name.localeCompare(b.name));
 }
 
 app.use(
@@ -199,9 +135,9 @@ app.get("/api/sources", async (_req, res) => {
 
 app.get("/api/developers", async (_req, res) => {
   try {
-    const groupedApps = enrichAppsWithCachedAppStoreMetadata(await getGroupedAppsForSources(SOURCES));
+    const catalog = await getCatalog();
     const body: DevelopersResponse = {
-      developers: getDevelopers(groupedApps)
+      developers: catalog.developers
     };
     res.json(body);
   } catch (error) {
@@ -241,8 +177,8 @@ app.get("/api/download", async (req, res) => {
   }
 
   try {
-    const groupedApps = await getGroupedAppsForSources(SOURCES);
-    const target = resolveDownloadTarget(groupedApps, parsedQuery.data.appId, parsedQuery.data.sourceId);
+    const catalog = await getCatalog();
+    const target = resolveDownloadTarget(catalog.apps, parsedQuery.data.appId, parsedQuery.data.sourceId);
     if (!target.ok) {
       sendError(res, target.status, target.code, target.message);
       return;
@@ -304,9 +240,9 @@ app.get("/api/downloads/stats", (req, res) => {
 
 app.get("/api/sitemap/apps", async (_req, res) => {
   try {
-    const groupedApps = await getGroupedAppsForSources(SOURCES);
+    const catalog = await getCatalog();
     const body: SitemapAppsResponse = {
-      apps: groupedApps.map((app) => ({
+      apps: catalog.apps.map((app) => ({
         id: app.id,
         bundleIdentifier: app.bundleIdentifier,
         versionDate: app.versionDate,
@@ -340,7 +276,6 @@ app.get("/api/updates", async (req, res) => {
     return;
   }
   try {
-    await getGroupedAppsForSources(SOURCES);
     const events = readUpdateEvents(parseBoundary(parsed.data.from), parseBoundary(parsed.data.to), parsed.data.type, 20_000);
     const start = (parsed.data.page - 1) * parsed.data.pageSize;
     const body: UpdatesResponse = {
@@ -355,7 +290,6 @@ app.get("/api/updates", async (req, res) => {
 
 app.get("/api/updates/archives", async (_req, res) => {
   try {
-    await getGroupedAppsForSources(SOURCES);
     const body: ArchivesResponse = readArchives();
     res.json(body);
   } catch (error) {
@@ -401,7 +335,8 @@ app.get("/api/collections/:slug", async (req, res) => {
     return;
   }
   try {
-    let apps = enrichAppsWithCachedAppStoreMetadata(await getGroupedAppsForSources(SOURCES));
+    const catalog = await getCatalog();
+    let apps = enrichAppsWithCachedAppStoreMetadata(catalog.apps);
     const definition = COLLECTIONS[slug.data];
     if (definition.category) apps = apps.filter((app) => app.category === definition.category);
     if (slug.data === "ios-26-compatible") {
@@ -444,15 +379,17 @@ function similarity(a: AppDto, b: AppDto): number {
 
 app.get("/api/apps/:appId/recommendations", async (req, res) => {
   try {
-    const apps = enrichAppsWithCachedAppStoreMetadata(await getGroupedAppsForSources(SOURCES));
-    const target = findApp(apps, req.params.appId);
+    const catalog = await getCatalog();
+    const apps = enrichAppsWithCachedAppStoreMetadata(catalog.apps);
+    const target = apps.find((app) => appIdentity(app).some((id) => id.toLowerCase() === req.params.appId.toLowerCase()));
     if (!target) { sendError(res, 404, "app_not_found", "Unknown app."); return; }
     const others = apps.filter((app) => app.id !== target.id);
     const ranked = [...others].sort((a, b) => similarity(target, b) - similarity(target, a));
     const developer = target.appStore?.developerName ?? target.developerName;
     const sourceIds = new Set(target.downloadOptions.map((option) => option.sourceId));
     const coIds = readAlsoDownloaded(target.id, Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const coDownloaded = coIds.flatMap((id) => findApp(others, id) ?? []).slice(0, 6);
+    const othersById = new Map(others.flatMap((app) => appIdentity(app).map((id) => [id.toLowerCase(), app] as const)));
+    const coDownloaded = coIds.flatMap((id) => othersById.get(id.toLowerCase()) ?? []).slice(0, 6);
     const sections: RecommendationsResponse["sections"] = [
       { id: "related", title: "Related Apps", apps: ranked.filter((app) => app.category === target.category).slice(0, 6) },
       { id: "similar", title: "Similar Apps", apps: ranked.slice(0, 6) },
@@ -468,8 +405,8 @@ app.get("/api/apps/:appId/recommendations", async (req, res) => {
 
 app.get("/api/apps/:appId/versions", async (req, res) => {
   try {
-    const apps = await getGroupedAppsForSources(SOURCES);
-    const app = findApp(apps, req.params.appId);
+    const catalog = await getCatalog();
+    const app = findAppById(catalog, req.params.appId);
     if (!app) { sendError(res, 404, "app_not_found", "Unknown app."); return; }
     res.json({ app, versions: readAppVersions(req.params.appId) } satisfies VersionsResponse);
   } catch (error) {
@@ -479,8 +416,8 @@ app.get("/api/apps/:appId/versions", async (req, res) => {
 
 app.get("/api/apps/:appId/versions/:version", async (req, res) => {
   try {
-    const apps = await getGroupedAppsForSources(SOURCES);
-    const app = findApp(apps, req.params.appId);
+    const catalog = await getCatalog();
+    const app = findAppById(catalog, req.params.appId);
     const version = readAppVersions(req.params.appId).find((item) => item.version.toLowerCase() === req.params.version.toLowerCase());
     if (!app || !version) { sendError(res, 404, "version_not_found", "Unknown app version."); return; }
     res.json({ app, version } satisfies VersionResponse);
@@ -491,7 +428,6 @@ app.get("/api/apps/:appId/versions/:version", async (req, res) => {
 
 app.get("/api/apps/:appId/status", async (req, res) => {
   try {
-    await getGroupedAppsForSources(SOURCES);
     res.json(readAppStatus(req.params.appId));
   } catch (error) {
     sendError(res, 502, "status_fetch_failed", "Could not resolve app status.", { message: error instanceof Error ? error.message : String(error) });
@@ -505,26 +441,38 @@ app.get("/api/apps", async (req, res) => {
     return;
   }
 
-  const selectedSources = parsedQuery.data.sourceId
-    ? SOURCES.filter((source) => source.id === parsedQuery.data.sourceId)
-    : SOURCES;
-
-  if (parsedQuery.data.sourceId && selectedSources.length === 0) {
-    sendError(res, 404, "source_not_found", `Unknown source "${parsedQuery.data.sourceId}".`);
-    return;
-  }
-
   try {
-    const allApps = await getAppsForSources(selectedSources);
-    const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
+    if (parsedQuery.data.sourceId) {
+      const selectedSources = SOURCES.filter((source) => source.id === parsedQuery.data.sourceId);
+      if (selectedSources.length === 0) {
+        sendError(res, 404, "source_not_found", `Unknown source "${parsedQuery.data.sourceId}".`);
+        return;
+      }
+
+      const allApps = await getAppsForSources(selectedSources);
+      const categorizedApps = filterAppsByCategory(allApps, parsedQuery.data.category);
+      const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
+      const groupedApps = groupAppsByBundleId(filteredApps);
+      const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+      const pagedApps = paginateApps(sortedApps, parsedQuery.data);
+      const body: AppListResponse = {
+        apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
+        pagination: pagedApps.pagination,
+        categories: getCategoryFacets(allApps)
+      };
+      res.json(body);
+      return;
+    }
+
+    const catalog = await getCatalog();
+    const categorizedApps = filterAppsByCategory(catalog.apps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
-    const groupedApps = groupAppsByBundleId(filteredApps);
-    const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+    const sortedApps = sortApps(filteredApps, parsedQuery.data.sort);
     const pagedApps = paginateApps(sortedApps, parsedQuery.data);
     const body: AppListResponse = {
       apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
       pagination: pagedApps.pagination,
-      categories: getCategoryFacets(allApps)
+      categories: catalog.categoryFacets
     };
     res.json(body);
   } catch (error) {
@@ -542,17 +490,11 @@ app.get("/api/apps/:appId", async (req, res) => {
   }
 
   try {
-    const groupedApps = await getGroupedAppsForSources(SOURCES);
-    const decodedAppId = params.data.appId;
-    const matchedApp = groupedApps.find(
-      (candidate) =>
-        candidate.id === decodedAppId ||
-        candidate.bundleIdentifier?.toLowerCase() === decodedAppId.toLowerCase() ||
-        candidate.id === `bundle:${decodedAppId.toLowerCase()}`
-    );
+    const catalog = await getCatalog();
+    const matchedApp = findAppById(catalog, params.data.appId);
 
     if (!matchedApp) {
-      sendError(res, 404, "app_not_found", `Unknown app "${decodedAppId}".`);
+      sendError(res, 404, "app_not_found", `Unknown app "${params.data.appId}".`);
       return;
     }
 
@@ -623,18 +565,14 @@ app.get("/api/developers/:developerSlug/apps", async (req, res) => {
   }
 
   try {
-    const groupedApps = enrichAppsWithCachedAppStoreMetadata(await getGroupedAppsForSources(SOURCES));
-    const developer = getDevelopers(groupedApps).find((candidate) => candidate.slug === params.data.developerSlug);
+    const catalog = await getCatalog();
+    const developerApps = catalog.developerSlugToApps.get(params.data.developerSlug);
 
-    if (!developer) {
+    if (!developerApps) {
       sendError(res, 404, "developer_not_found", `Unknown developer "${params.data.developerSlug}".`);
       return;
     }
 
-    const developerApps = groupedApps.filter((app) => {
-      const name = getDeveloperName(app);
-      return name ? slugify(name) === developer.slug : false;
-    });
     const categorizedApps = filterAppsByCategory(developerApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
     const sortedApps = sortApps(filteredApps, parsedQuery.data.sort);
@@ -660,22 +598,36 @@ app.get("/api/search", async (req, res) => {
     return;
   }
 
-  const selectedSources = parsedQuery.data.sourceId
-    ? SOURCES.filter((source) => source.id === parsedQuery.data.sourceId)
-    : SOURCES;
-
-  if (parsedQuery.data.sourceId && selectedSources.length === 0) {
-    sendError(res, 404, "source_not_found", `Unknown source "${parsedQuery.data.sourceId}".`);
-    return;
-  }
-
   try {
-    const allApps = await getAppsForSources(selectedSources);
-    const matchedApps = searchApps(allApps, parsedQuery.data.q);
+    if (parsedQuery.data.sourceId) {
+      const selectedSources = SOURCES.filter((source) => source.id === parsedQuery.data.sourceId);
+      if (selectedSources.length === 0) {
+        sendError(res, 404, "source_not_found", `Unknown source "${parsedQuery.data.sourceId}".`);
+        return;
+      }
+
+      const allApps = await getAppsForSources(selectedSources);
+      const matchedApps = searchApps(allApps, parsedQuery.data.q);
+      const categorizedApps = filterAppsByCategory(matchedApps, parsedQuery.data.category);
+      const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
+      const groupedApps = groupAppsByBundleId(filteredApps);
+      const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+      const pagedApps = paginateApps(sortedApps, parsedQuery.data);
+      const body: SearchResponse = {
+        query: parsedQuery.data,
+        apps: attachAppStoreMetadata(pagedApps.apps, parsedQuery.data.includeAppStore),
+        pagination: pagedApps.pagination,
+        categories: getCategoryFacets(matchedApps)
+      };
+      res.json(body);
+      return;
+    }
+
+    const catalog = await getCatalog();
+    const matchedApps = searchMaterializedCatalog(catalog, parsedQuery.data.q);
     const categorizedApps = filterAppsByCategory(matchedApps, parsedQuery.data.category);
     const filteredApps = filterAppsByIosVersion(categorizedApps, parsedQuery.data);
-    const groupedApps = groupAppsByBundleId(filteredApps);
-    const sortedApps = sortApps(groupedApps, parsedQuery.data.sort);
+    const sortedApps = sortApps(filteredApps, parsedQuery.data.sort);
     const pagedApps = paginateApps(sortedApps, parsedQuery.data);
     const body: SearchResponse = {
       query: parsedQuery.data,

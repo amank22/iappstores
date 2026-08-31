@@ -22,6 +22,11 @@ type CachedRepo = {
 
 const repoCache = new Map<string, CachedRepo>();
 const refreshes = new Map<string, Promise<AppDto[]>>();
+const refreshListeners: Array<(sourceId: string) => void> = [];
+
+export function onSourceRefreshed(listener: (sourceId: string) => void): void {
+  refreshListeners.push(listener);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -262,6 +267,7 @@ async function fetchAndPersistSourceApps(source: SourceDefinition, ttlMs: number
     writeSourceCache(source, apps, ttlMs);
     syncSourceCatalog(source.id, apps);
     writeMemoryCache(source.id, apps, Date.now() + ttlMs, fetched.raw);
+    for (const listener of refreshListeners) listener(source.id);
 
     return apps;
   } catch (error) {
