@@ -123,8 +123,9 @@ export async function fetchDevelopers(): Promise<DeveloperDto[]> {
   return response.developers;
 }
 
-export async function fetchSourceApps(sourceId: string): Promise<AppsResponse> {
-  return request(`/api/sources/${encodeURIComponent(sourceId)}/apps`, AppsResponseSchema);
+export async function fetchSourceApps(sourceId: string, options: AppQueryOptions = {}): Promise<AppsResponse> {
+  const query = toQueryString(options);
+  return request(`/api/sources/${encodeURIComponent(sourceId)}/apps${query ? `?${query}` : ""}`, AppsResponseSchema);
 }
 
 function toQueryString(options: AppQueryOptions = {}): string {

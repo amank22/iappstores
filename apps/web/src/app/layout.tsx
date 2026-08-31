@@ -5,6 +5,7 @@ import "react-photo-view/dist/react-photo-view.css";
 import { Manrope } from "next/font/google";
 import Script from "next/script";
 import { cn } from "@/lib/utils";
+import { SiteHeader } from "@/components/site-header";
 
 const googleAnalyticsId = "G-VSPK9T0VT9";
 
@@ -98,6 +99,7 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${googleAnalyticsId}');`}
         </Script>
+        <SiteHeader />
         {children}
       </body>
     </html>

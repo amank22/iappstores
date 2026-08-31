@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppCard } from "@/components/app-card";
-import { SiteHeader } from "@/components/site-header";
+import { RepositoryAppBrowser } from "@/components/repository-app-browser";
 import { fetchSourceApps, fetchSources } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/seo";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +58,6 @@ export default async function RepositoryPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
           <div className="flex flex-wrap gap-2">
@@ -94,11 +92,7 @@ export default async function RepositoryPage({ params }: PageProps) {
           </section>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {response.apps.map((app) => (
-            <AppCard key={app.id} app={app} />
-          ))}
-        </section>
+        <RepositoryAppBrowser sourceId={sourceId} initialApps={response.apps} initialPagination={response.pagination} />
       </div>
     </main>
   );

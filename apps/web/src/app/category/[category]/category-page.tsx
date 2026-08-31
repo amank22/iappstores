@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { IndexableCategory } from "@/lib/seo";
-import { AppCard } from "@/components/app-card";
-import { SiteHeader } from "@/components/site-header";
+import { CategoryAppBrowser } from "@/components/category-app-browser";
 import { fetchApps } from "@/lib/api";
 import {
   CATEGORY_DESCRIPTIONS,
@@ -31,7 +30,6 @@ export async function CategoryPageContent({ category, page }: CategoryPageConten
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
           <div className="flex flex-wrap gap-2">
@@ -42,29 +40,15 @@ export async function CategoryPageContent({ category, page }: CategoryPageConten
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {response.apps.map((app) => (
-            <AppCard key={app.id} app={app} />
-          ))}
-        </section>
+        <CategoryAppBrowser category={category} initialApps={response.apps} initialPagination={response.pagination} />
 
-        <nav className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-card p-4 ring-1 ring-foreground/10" aria-label={`${label} pagination`}>
+        {page > 1 ? (
           <div className="text-sm text-muted-foreground">
-            Page {response.pagination.page.toLocaleString()} of {response.pagination.totalPages.toLocaleString()}
+            <Link className="text-primary hover:underline" href={`/category/${category}`}>
+              Back to the start of {label}
+            </Link>
           </div>
-          <div className="flex gap-2">
-            {response.pagination.hasPreviousPage ? (
-              <Button asChild variant="outline">
-                <Link href={page - 1 === 1 ? `/category/${category}` : `/category/${category}/page/${page - 1}`}>Previous</Link>
-              </Button>
-            ) : null}
-            {response.pagination.hasNextPage ? (
-              <Button asChild>
-                <Link href={`/category/${category}/page/${page + 1}`}>Next</Link>
-              </Button>
-            ) : null}
-          </div>
-        </nav>
+        ) : null}
 
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
           <h2 className="text-xl font-semibold tracking-tight">More ways to browse</h2>

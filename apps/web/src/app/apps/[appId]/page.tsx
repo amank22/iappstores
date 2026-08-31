@@ -4,7 +4,6 @@ import { notFound, permanentRedirect } from "next/navigation";
 import type { AppDto } from "@iappstores/contracts";
 import { AppDetailAnalytics } from "@/components/app-detail-analytics";
 import { AppCard, AppDetailsContent } from "@/components/app-card";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchApp, fetchRecommendations } from "@/lib/api";
@@ -114,7 +113,6 @@ export default async function AppPage({ params }: AppPageProps) {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
       <script
         type="application/ld+json"
         suppressHydrationWarning

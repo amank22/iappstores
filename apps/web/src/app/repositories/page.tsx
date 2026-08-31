@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchSources } from "@/lib/api";
-import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -25,7 +24,6 @@ export default async function RepositoriesPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
           <Badge variant="secondary">Sources</Badge>
