@@ -88,8 +88,14 @@ async function getAppsForSources(sources: typeof SOURCES) {
   return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 }
 
-const GROUPED_APPS_CACHE_TTL_MS = 30_000;
+const DEFAULT_GROUPED_APPS_CACHE_TTL_MINUTES = 360;
 let groupedAppsCache: { expiresAt: number; promise: Promise<AppDto[]> } | undefined;
+
+function getGroupedAppsCacheTtlMs(): number {
+  const configuredMinutes = Number(process.env.CATALOG_CACHE_TTL_MINUTES);
+  const minutes = Number.isFinite(configuredMinutes) && configuredMinutes > 0 ? configuredMinutes : DEFAULT_GROUPED_APPS_CACHE_TTL_MINUTES;
+  return minutes * 60_000;
+}
 
 async function getGroupedAppsForSources(sources: typeof SOURCES) {
   if (groupedAppsCache && groupedAppsCache.expiresAt > Date.now()) {
@@ -97,7 +103,7 @@ async function getGroupedAppsForSources(sources: typeof SOURCES) {
   }
 
   const promise = getAppsForSources(sources).then((allApps) => hydrateCatalogApps(groupAppsByBundleId(allApps)));
-  groupedAppsCache = { expiresAt: Date.now() + GROUPED_APPS_CACHE_TTL_MS, promise };
+  groupedAppsCache = { expiresAt: Date.now() + getGroupedAppsCacheTtlMs(), promise };
   promise.catch(() => {
     groupedAppsCache = undefined;
   });
