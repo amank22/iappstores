@@ -66,7 +66,7 @@ jobs:
         if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' }}
         run: |
           curl --fail --silent --show-error --location \
-            --request GET "${COOLIFY_WEBHOOK_URL}" \
+            --request POST "${COOLIFY_WEBHOOK_URL}" \
             --header "Authorization: Bearer ${COOLIFY_API_TOKEN}"
 
       - name: Skip Coolify deployment
