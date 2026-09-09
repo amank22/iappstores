@@ -8,14 +8,14 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
-    "start": "node dist/index.js",
+    "start": "bun --smol dist/index.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "validate:sources": "tsx scripts/validate-sources.ts"
   },
   "dependencies": {
-    "@iappstores/contracts": "file:../../packages/contracts",
+    "@iappstores/contracts": "workspace:*",
     "@vitalets/google-translate-api": "^9.2.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",

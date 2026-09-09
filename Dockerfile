@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM oven/bun:1.4.0-alpine AS build
 
 WORKDIR /app
 
@@ -7,18 +7,18 @@ ARG NEXT_PUBLIC_SITE_URL=$SITE_URL
 ENV SITE_URL=$SITE_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 
-COPY package*.json ./
+COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 
-RUN npm ci
+RUN bun install --frozen-lockfile
 
 COPY . .
 
-RUN npm run build
+RUN bun run build
 
-FROM node:22-alpine AS runner
+FROM oven/bun:1.4.0-alpine AS runner
 
 WORKDIR /app
 
@@ -38,9 +38,6 @@ ENV APP_STORE_COUNTRY=us
 ENV APP_STORE_LOOKUP_DELAY_MS=3500
 ENV APP_STORE_CACHE_TTL_DAYS=30
 ENV APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
-# Caps each Node process's (api and web) old-space heap so a source-refresh
-# or traffic spike gets slowed by GC instead of getting OOM-killed by the host.
-ENV NODE_OPTIONS=--max-old-space-size=384
 
 COPY --from=build /app ./
 
@@ -52,4 +49,4 @@ VOLUME ["/data"]
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=6 \
   CMD curl --fail --silent --show-error "http://127.0.0.1:${WEB_PORT:-3000}/health" >/dev/null || exit 1
 
-CMD ["npm", "run", "start"]
+CMD ["bun", "run", "start"]

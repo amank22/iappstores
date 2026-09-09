@@ -8,22 +8,23 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run build -w @iappstores/contracts && concurrently \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "npm run dev -w @iappstores/api",
-    "dev:web": "npm run dev -w @iappstores/web",
-    "start": "concurrently -k -n api,web \"npm run start:api\" \"npm run start:web\"",
-    "start:api": "npm run start -w @iappstores/api",
-    "start:web": "npm run start -w @iappstores/web",
-    "build": "npm run build -w @iappstores/contracts && npm run build -w @iappstores/api && npm run build -w @iappstores/web",
-    "rebuild": "npm run clean -w @iappstores/contracts && npm run build -w @iappstores/contracts && npm run clean -w @iappstores/api && npm run build -w @iappstores/api && npm run clean -w @iappstores/web && npm run build -w @iappstores/web",
-    "lint": "npm run lint -w @iappstores/api && npm run lint -w @iappstores/web",
-    "typecheck": "npm run build -w @iappstores/contracts && npm run typecheck -w @iappstores/api && npm run typecheck -w @iappstores/web",
-    "test": "npm run test -w @iappstores/api",
-    "validate:sources": "npm run build -w @iappstores/contracts && npm run validate:sources -w @iappstores/api -- ../../repolist.txt"
+    "dev": "bun run --filter='@iappstores/contracts' build && concurrently \"bun run dev:api\" \"bun run dev:web\"",
+    "dev:api": "bun run --filter='@iappstores/api' dev",
+    "dev:web": "bun run --filter='@iappstores/web' dev",
+    "start": "concurrently -k -n api,web \"bun run start:api\" \"bun run start:web\"",
+    "start:api": "bun run --filter='@iappstores/api' start",
+    "start:web": "bun run --filter='@iappstores/web' start",
+    "build": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' build && bun run --filter='@iappstores/web' build",
+    "rebuild": "bun run --filter='@iappstores/contracts' clean && bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' clean && bun run --filter='@iappstores/api' build && bun run --filter='@iappstores/web' clean && bun run --filter='@iappstores/web' build",
+    "lint": "bun run --filter='@iappstores/api' lint && bun run --filter='@iappstores/web' lint",
+    "typecheck": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' typecheck && bun run --filter='@iappstores/web' typecheck",
+    "test": "bun run --filter='@iappstores/api' test",
+    "validate:sources": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' validate:sources ../../repolist.txt"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
     "typescript": "^5.8.3"
   },
-  "packageManager": "pnpm@11.8.0+sha512.c1f5e7c4cb241c8f174b743851d82f42b802324afc8b0f116b96adb15aa06664948dde36960a3ba1079ba5b4b29dd0140135b94b5b5f5263592249d68e555f26"
+  "trustedDependencies": ["sharp", "esbuild"],
+  "packageManager": "bun@1.4.0"
 }

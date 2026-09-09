@@ -7,13 +7,13 @@
     "dev": "next dev",
     "build": "next build",
     "clean": "rm -rf .next",
-    "start": "next start -H 0.0.0.0 -p ${WEB_PORT:-3000}",
+    "start": "bun --smol --bun next start -H 0.0.0.0 -p ${WEB_PORT:-3000}",
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@iappstores/contracts": "file:../../packages/contracts",
+    "@iappstores/contracts": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
