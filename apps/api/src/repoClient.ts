@@ -17,7 +17,6 @@ const DEFAULT_TREE_FETCH_CONCURRENCY = 8;
 type CachedRepo = {
   expiresAt: number;
   apps: AppDto[];
-  raw: unknown;
 };
 
 const repoCache = new Map<string, CachedRepo>();
@@ -194,7 +193,7 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-async function fetchGithubTreeSourceApps(source: SourceDefinition): Promise<{ apps: AppDto[]; raw: unknown }> {
+async function fetchGithubTreeSourceApps(source: SourceDefinition): Promise<AppDto[]> {
   const treeJson = source.treeFile
     ? await readGithubTreeFile(source.treeFile)
     : await fetchJson(getGithubTreeFetchUrl(source.url));
@@ -231,25 +230,18 @@ async function fetchGithubTreeSourceApps(source: SourceDefinition): Promise<{ ap
     );
   }
 
-  return {
-    apps,
-    raw: treeJson
-  };
+  return apps;
 }
 
-async function fetchAltStoreSourceApps(source: SourceDefinition): Promise<{ apps: AppDto[]; raw: unknown }> {
+async function fetchAltStoreSourceApps(source: SourceDefinition): Promise<AppDto[]> {
   const raw = await fetchJson(source.url);
-  return {
-    apps: normalizeAltStoreRepo(raw, source),
-    raw
-  };
+  return normalizeAltStoreRepo(raw, source);
 }
 
-function writeMemoryCache(sourceId: string, apps: AppDto[], expiresAt: number, raw?: unknown): void {
+function writeMemoryCache(sourceId: string, apps: AppDto[], expiresAt: number): void {
   repoCache.set(sourceId, {
     expiresAt,
-    apps,
-    raw
+    apps
   });
 }
 
@@ -259,14 +251,13 @@ function hydrateMemoryFromSqlite(entry: SourceCacheEntry): void {
 
 async function fetchAndPersistSourceApps(source: SourceDefinition, ttlMs: number): Promise<AppDto[]> {
   try {
-    const fetched =
+    const apps =
       source.kind === "github-tree"
         ? await fetchGithubTreeSourceApps(source)
         : await fetchAltStoreSourceApps(source);
-    const apps = fetched.apps;
     writeSourceCache(source, apps, ttlMs);
     syncSourceCatalog(source.id, apps);
-    writeMemoryCache(source.id, apps, Date.now() + ttlMs, fetched.raw);
+    writeMemoryCache(source.id, apps, Date.now() + ttlMs);
     for (const listener of refreshListeners) listener(source.id);
 
     return apps;
@@ -313,8 +304,4 @@ export async function getSourceApps(source: SourceDefinition, ttlMs = getCacheTt
 
 export function clearRepoCache(): void {
   repoCache.clear();
-}
-
-export function getCachedRawRepo(sourceId: string): unknown {
-  return repoCache.get(sourceId)?.raw;
 }
