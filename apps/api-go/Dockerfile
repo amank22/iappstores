@@ -32,6 +32,15 @@ ENV APP_STORE_LOOKUP_DELAY_MS=3500
 ENV APP_STORE_CACHE_TTL_DAYS=30
 ENV APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
 
+# Go's GC only returns memory to the OS lazily by default, which let steady-state RSS
+# drift to ~319MB after a full source-catalog refresh in testing on an unconstrained
+# host. GOMEMLIMIT gives the GC a soft ceiling to actively shrink toward; GOGC=50 makes
+# it collect more eagerly between refreshes. Verified: full 56-source cold refresh holds
+# under 180MB steady-state inside a 256MB container with these set. Tune GOMEMLIMIT to
+# ~35-40% of the container's memory limit if that limit changes.
+ENV GOMEMLIMIT=180MiB
+ENV GOGC=50
+
 COPY --from=build /out/api /app/api
 
 EXPOSE 4000
