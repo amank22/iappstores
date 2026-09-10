@@ -17,6 +17,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   SITE_URL: https://iappstores.com
+  API_INTERNAL_URL: http://iappstores-api-go:4000
   COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
   COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
 
@@ -61,6 +62,7 @@ jobs:
           build-args: |
             SITE_URL=${{ env.SITE_URL }}
             NEXT_PUBLIC_SITE_URL=${{ env.SITE_URL }}
+            API_INTERNAL_URL=${{ env.API_INTERNAL_URL }}
 
       - name: Trigger Coolify deployment
         if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' }}
