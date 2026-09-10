@@ -23,6 +23,16 @@ import (
 	"github.com/iappstores/api-go/internal/sources"
 )
 
+// catalogSearchCandidateCap bounds how many FTS5 matches SearchCatalogIds retrieves before
+// category/iosVersion filtering and pagination happen in Go (consistent with every other
+// browse/search path, none of which push those filters into SQL). It's a safety valve for
+// pathologically broad queries, not the real pagination mechanism -- id+rank rows are cheap,
+// so this only needs to be comfortably larger than any realistic result page times a filter
+// pass, not tuned to a specific page size. A query matching more than this many apps will
+// under-report its true total in Pagination, which is an acceptable, clearly-bounded
+// tradeoff against holding the entire catalog_search table in every search response.
+const catalogSearchCandidateCap = 2000
+
 type Server struct {
 	Catalog   *catalog.Store
 	Repo      *repo.Client
@@ -203,8 +213,18 @@ func (s *Server) handleApps(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, contracts.AppListResponse{
 		Apps:       s.attachAppStoreMetadata(paged, q.IncludeAppStore),
 		Pagination: pagination,
-		Categories: normalizer.GetCategoryFacets(allApps),
+		Categories: s.wholeCatalogCategoryFacets(),
 	})
+}
+
+// wholeCatalogCategoryFacets computes category facets for the full unfiltered active
+// catalog via the indexed SQL GROUP BY (catalog.Store.CountByCategory/TotalActive) instead
+// of an in-memory pass over allActiveApps() -- the two are only equivalent for this exact
+// "no source, no search query" case, since catalog_apps rows are already one-per-canonical-
+// app (no grouping ambiguity) and category is an indexed column. Any filtered set (a single
+// source's raw apps, or search results) still needs normalizer.GetCategoryFacets.
+func (s *Server) wholeCatalogCategoryFacets() []contracts.AppCategoryFacet {
+	return normalizer.BuildCategoryFacets(s.Catalog.CountByCategory(), s.Catalog.TotalActive())
 }
 
 func (s *Server) handleAppByID(w http.ResponseWriter, r *http.Request) {
@@ -321,11 +341,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	emptyQuery := strings.TrimSpace(q.Q) == ""
 	var matched []contracts.AppDto
-	if strings.TrimSpace(q.Q) == "" {
+	if emptyQuery {
 		matched = s.allActiveApps()
 	} else if s.Catalog.IsSearchIndexAvailable() {
-		ids := s.Catalog.SearchCatalogIds(q.Q, 500)
+		ids := s.Catalog.SearchCatalogIds(q.Q, catalogSearchCandidateCap)
 		matched = s.Catalog.ListByCanonicalIDs(ids)
 	} else {
 		matched = normalizer.SearchApps(s.allActiveApps(), q.Q)
@@ -335,11 +356,20 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	filtered := normalizer.FilterAppsByIosVersion(categorized, q.IosVersion, q.IosVersionOperator)
 	sorted := normalizer.SortApps(filtered, q.Sort)
 	paged, pagination := normalizer.PaginateApps(sorted, q.Page, q.PageSize)
+
+	// An empty query returns the whole active catalog unfiltered, so its facets are just
+	// the whole-catalog facets -- reuse the indexed SQL path instead of an in-memory pass.
+	var categories []contracts.AppCategoryFacet
+	if emptyQuery {
+		categories = s.wholeCatalogCategoryFacets()
+	} else {
+		categories = normalizer.GetCategoryFacets(matched)
+	}
 	writeJSON(w, 200, contracts.SearchResponse{
 		Query:      q,
 		Apps:       s.attachAppStoreMetadata(paged, q.IncludeAppStore),
 		Pagination: pagination,
-		Categories: normalizer.GetCategoryFacets(matched),
+		Categories: categories,
 	})
 }
 
