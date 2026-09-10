@@ -365,7 +365,7 @@ func (c *Client) fetchAndPersist(ctx context.Context, source sources.SourceDefin
 		apps, err = c.fetchAltStoreSourceApps(ctx, source)
 	}
 	if err != nil {
-		_ = c.cache.WriteError(source.ID, err.Error())
+		_ = c.cache.WriteError(source.ID, source.URL, err.Error())
 		return nil, err
 	}
 

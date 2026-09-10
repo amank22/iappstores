@@ -22,21 +22,22 @@ func NewCacheStore(db *sql.DB) *CacheStore {
 }
 
 type CacheEntry struct {
-	SourceID    string
-	SourceURL   string
-	FetchedAt   int64
-	ExpiresAt   int64
-	AppCount    int
-	Apps        []contracts.AppDto
-	LastError   *string
-	LastErrorAt *int64
-	IsExpired   bool
+	SourceID            string
+	SourceURL           string
+	FetchedAt           int64
+	ExpiresAt           int64
+	AppCount            int
+	Apps                []contracts.AppDto
+	LastError           *string
+	LastErrorAt         *int64
+	ConsecutiveFailures int
+	IsExpired           bool
 }
 
 // Read mirrors readSourceCache(): returns nil if there's no row, the row's URL doesn't
 // match the source's current URL (source definitions changed), or the JSON fails to parse.
 func (s *CacheStore) Read(sourceID, sourceURL string) *CacheEntry {
-	row := s.db.QueryRow(`SELECT source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at
+	row := s.db.QueryRow(`SELECT source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at, consecutive_failures
 		FROM source_cache WHERE source_id = ?`, sourceID)
 
 	var (
@@ -45,8 +46,9 @@ func (s *CacheStore) Read(sourceID, sourceURL string) *CacheEntry {
 		appCount             int
 		lastError            sql.NullString
 		lastErrorAt          sql.NullInt64
+		consecutiveFailures  int
 	)
-	if err := row.Scan(&id, &url, &fetchedAt, &expiresAt, &appCount, &appsJSON, &lastError, &lastErrorAt); err != nil {
+	if err := row.Scan(&id, &url, &fetchedAt, &expiresAt, &appCount, &appsJSON, &lastError, &lastErrorAt, &consecutiveFailures); err != nil {
 		return nil
 	}
 	if url != sourceURL {
@@ -59,13 +61,14 @@ func (s *CacheStore) Read(sourceID, sourceURL string) *CacheEntry {
 	}
 
 	entry := &CacheEntry{
-		SourceID:  id,
-		SourceURL: url,
-		FetchedAt: fetchedAt,
-		ExpiresAt: expiresAt,
-		AppCount:  appCount,
-		Apps:      apps,
-		IsExpired: expiresAt <= time.Now().UnixMilli(),
+		SourceID:            id,
+		SourceURL:           url,
+		FetchedAt:           fetchedAt,
+		ExpiresAt:           expiresAt,
+		AppCount:            appCount,
+		Apps:                apps,
+		ConsecutiveFailures: consecutiveFailures,
+		IsExpired:           expiresAt <= time.Now().UnixMilli(),
 	}
 	if lastError.Valid {
 		entry.LastError = &lastError.String
@@ -87,8 +90,8 @@ func (s *CacheStore) Write(sourceID, sourceURL string, apps []contracts.AppDto, 
 	}
 	return dbconn.RetryOnBusy(func() error {
 		_, err := s.db.Exec(`
-			INSERT INTO source_cache (source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at)
-			VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
+			INSERT INTO source_cache (source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at, consecutive_failures)
+			VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 0)
 			ON CONFLICT(source_id) DO UPDATE SET
 				source_url = excluded.source_url,
 				fetched_at = excluded.fetched_at,
@@ -96,17 +99,28 @@ func (s *CacheStore) Write(sourceID, sourceURL string, apps []contracts.AppDto, 
 				app_count = excluded.app_count,
 				apps_json = excluded.apps_json,
 				last_error = NULL,
-				last_error_at = NULL
+				last_error_at = NULL,
+				consecutive_failures = 0
 		`, sourceID, sourceURL, now, now+ttl.Milliseconds(), len(apps), string(appsJSON))
 		return err
 	})
 }
 
-// WriteError mirrors writeSourceCacheError().
-func (s *CacheStore) WriteError(sourceID string, message string) error {
+// WriteError mirrors writeSourceCacheError(), extended to upsert (a source that has never
+// fetched successfully has no existing row yet) and to track consecutive_failures so the
+// refresh worker can back off sources that keep failing instead of retrying them every
+// cycle forever. A successful Write resets consecutive_failures back to 0.
+func (s *CacheStore) WriteError(sourceID, sourceURL, message string) error {
 	now := time.Now().UnixMilli()
 	return dbconn.RetryOnBusy(func() error {
-		_, err := s.db.Exec(`UPDATE source_cache SET last_error = ?, last_error_at = ? WHERE source_id = ?`, message, now, sourceID)
+		_, err := s.db.Exec(`
+			INSERT INTO source_cache (source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at, consecutive_failures)
+			VALUES (?, ?, 0, ?, 0, '[]', ?, ?, 1)
+			ON CONFLICT(source_id) DO UPDATE SET
+				last_error = excluded.last_error,
+				last_error_at = excluded.last_error_at,
+				consecutive_failures = consecutive_failures + 1
+		`, sourceID, sourceURL, now, message, now)
 		return err
 	})
 }

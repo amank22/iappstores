@@ -285,6 +285,80 @@ func TestBackfillsSearchIndexFromLegacyRows(t *testing.T) {
 	}
 }
 
+func TestListAllActiveAppsCacheServesUntilInvalidated(t *testing.T) {
+	s := newTestStore(t)
+	app := makeApp("test-source:com.example.cached", "com.example.cached", "Cached App", nil)
+	if err := s.SyncSourceCatalog("test-source", []contracts.AppDto{app}, 0); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	first := s.ListAllActiveApps("")
+	if len(first) != 1 {
+		t.Fatalf("expected 1 active app, got %d", len(first))
+	}
+
+	// Mutating the returned slice must never corrupt the cache -- each caller gets its own
+	// shallow copy.
+	first[0].Name = "Mutated"
+	second := s.ListAllActiveApps("")
+	if second[0].Name != "Cached App" {
+		t.Errorf("expected cache to be unaffected by caller mutation, got %q", second[0].Name)
+	}
+
+	// A second source sync (even one that changes nothing) invalidates the cache, so the
+	// next read reflects the database again.
+	app2 := makeApp("test-source-2:com.example.other", "com.example.other", "Other App", nil)
+	if err := s.SyncSourceCatalog("test-source-2", []contracts.AppDto{app2}, 1); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	third := s.ListAllActiveApps("")
+	if len(third) != 2 {
+		t.Fatalf("expected cache to reload after invalidation, got %d apps", len(third))
+	}
+}
+
+func TestCountByCategoryAndTotalActive(t *testing.T) {
+	s := newTestStore(t)
+	game := makeApp("test-source:com.example.game", "com.example.game", "A Game", func(a *contracts.AppDto) {
+		a.Category = contracts.CategoryGames
+	})
+	tool := makeApp("test-source:com.example.tool", "com.example.tool", "A Tool", func(a *contracts.AppDto) {
+		a.Category = contracts.CategoryTools
+	})
+	if err := s.SyncSourceCatalog("test-source", []contracts.AppDto{game, tool}, 0); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	counts := s.CountByCategory()
+	if counts[contracts.CategoryGames] != 1 {
+		t.Errorf("games count = %d", counts[contracts.CategoryGames])
+	}
+	if counts[contracts.CategoryTools] != 1 {
+		t.Errorf("tools count = %d", counts[contracts.CategoryTools])
+	}
+	if total := s.TotalActive(); total != 2 {
+		t.Errorf("TotalActive() = %d, want 2", total)
+	}
+}
+
+func TestCanonicalIDIsAlwaysLowercase(t *testing.T) {
+	s := newTestStore(t)
+	// No bundle identifier -> canonicalID falls back to app.ID, which must still be
+	// lowercased so ListByCanonicalIDs (fed ids straight from the FTS5 index / canonical_id
+	// column) can never miss a row on a case mismatch.
+	app := makeApp("Test-Source:Mixed-Case-App", "", "Mixed Case App", func(a *contracts.AppDto) {
+		a.BundleIdentifier = nil
+	})
+	if err := s.SyncSourceCatalog("test-source", []contracts.AppDto{app}, 0); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	got := s.ListByCanonicalIDs([]string{"test-source:mixed-case-app"})
+	if len(got) != 1 {
+		t.Fatalf("expected canonical id to be stored lowercase and match exactly, got %d results", len(got))
+	}
+}
+
 func indexOf(ss []string, target string) int {
 	for i, s := range ss {
 		if s == target {

@@ -33,6 +33,9 @@ type Store struct {
 
 	mu               sync.Mutex
 	searchIndexReady *bool
+
+	activeAppsMu    sync.RWMutex
+	activeAppsCache []contracts.AppDto
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -199,11 +202,14 @@ func (s *Store) SearchCatalogIds(query string, limit int) []string {
 
 // --- canonicalization helpers ---
 
+// canonicalID always returns a lowercase id: every reader (ListByCanonicalIDs, the FTS5
+// index, alias lookups) relies on canonical_id being consistently cased so exact-match
+// lookups can't silently miss.
 func canonicalID(app contracts.AppDto) string {
 	if app.BundleIdentifier != nil && *app.BundleIdentifier != "" {
 		return strings.ToLower(*app.BundleIdentifier)
 	}
-	return app.ID
+	return strings.ToLower(app.ID)
 }
 
 func iso(ms *int64) *string {
@@ -484,9 +490,13 @@ func (s *Store) readRowTx(tx *sql.Tx, id string) *catalogRow {
 // whole transaction with backoff on SQLITE_BUSY (see dbconn.RetryOnBusy), since concurrent
 // source refreshes can briefly contend for SQLite's single writer lock.
 func (s *Store) SyncSourceCatalog(ownerSourceID string, apps []contracts.AppDto, now int64) error {
-	return dbconn.RetryOnBusy(func() error {
+	err := dbconn.RetryOnBusy(func() error {
 		return s.syncSourceCatalogOnce(ownerSourceID, apps, now)
 	})
+	if err == nil {
+		s.invalidateActiveAppsCache()
+	}
+	return err
 }
 
 func (s *Store) syncSourceCatalogOnce(ownerSourceID string, apps []contracts.AppDto, now int64) error {
@@ -868,17 +878,19 @@ func (s *Store) ReadArchives() contracts.ArchivesResponse {
 	return contracts.ArchivesResponse{Weeks: weeksOut, Months: monthsOut}
 }
 
-// --- paginated / faceted catalog reads (the architecture fix: SQL-driven, not a full
-// in-memory rescan) ---
+// --- faceted catalog reads: SQL-driven via the indexed category column, not an in-memory
+// rescan. Used by the httpapi layer for the "browse the whole catalog" facet computation
+// (see normalizer.BuildCategoryFacets); per-source and search-filtered facets still need an
+// in-memory pass since that data was never one query away in SQL to begin with. ---
 
 // CountByCategory mirrors getCategoryFacets() but via a single indexed GROUP BY query
 // against catalog_apps.category instead of an O(15n log n) full-array-regroup.
 // Non-"active" apps are excluded, matching browse routes' effective behavior (they only
 // ever read from catalog_apps rows that are active; missing/removed apps are addressable
 // individually via /status but never appear in a listing).
-func (s *Store) CountByCategory() map[string]int {
+func (s *Store) CountByCategory() map[contracts.AppCategory]int {
 	rows, err := s.db.Query(`SELECT category, COUNT(*) FROM catalog_apps WHERE status = 'active' GROUP BY category`)
-	out := map[string]int{}
+	out := map[contracts.AppCategory]int{}
 	if err != nil {
 		return out
 	}
@@ -887,7 +899,7 @@ func (s *Store) CountByCategory() map[string]int {
 		var category sql.NullString
 		var count int
 		if rows.Scan(&category, &count) == nil && category.Valid {
-			out[category.String] = count
+			out[contracts.AppCategory(category.String)] = count
 		}
 	}
 	return out
@@ -900,14 +912,20 @@ func (s *Store) TotalActive() int {
 	return count
 }
 
-// ListAppsPage reads one page of active catalog apps, optionally filtered by category,
-// sorted and paginated in SQL. sort "recent" and category "recent" both map to
-// ORDER BY metadata_updated_at DESC (an exact proxy for version-date recency once
-// decorated, since metadata_updated_at tracks the app's own release date when known).
-// Name sort still requires in-memory locale-aware comparison (SQLite has no built-in
-// Unicode collation), so name-asc/name-desc pages are read unsorted from SQL up to a
-// generous cap and then locale-sorted/paginated in Go.
+// ListAllActiveApps reads every active catalog app (or, given a real category, just that
+// category's active apps -- used rarely; browse/search routes filter the unfiltered list in
+// Go instead so they can share one cache, see below). Every row's app_json is unmarshaled,
+// so for the unfiltered case (the hot path -- every /api/apps and /api/search request with
+// no sourceId ends up here) the result is cached in memory and served without touching
+// SQLite at all until the catalog actually changes; see activeAppsCache.
 func (s *Store) ListAllActiveApps(category string) []contracts.AppDto {
+	if category == "" {
+		return s.listAllActiveAppsCached()
+	}
+	return s.queryActiveApps(category)
+}
+
+func (s *Store) queryActiveApps(category string) []contracts.AppDto {
 	query := `SELECT app_json FROM catalog_apps WHERE status = 'active'`
 	args := []interface{}{}
 	if category != "" && category != "all" && category != "recent" {
@@ -932,6 +950,41 @@ func (s *Store) ListAllActiveApps(category string) []contracts.AppDto {
 		}
 	}
 	return out
+}
+
+// listAllActiveAppsCached serves the unfiltered active-app list from activeAppsCache,
+// populating it on a miss. The cache is invalidated wholesale by invalidateActiveAppsCache
+// whenever SyncSourceCatalog commits (the only place catalog_apps rows change), so a hit
+// always reflects the current database -- there's no TTL to tune or go stale against.
+// Every caller gets its own shallow copy of the cached slice so appending to (or, in
+// principle, mutating an element of) a returned slice can never corrupt the shared cache.
+func (s *Store) listAllActiveAppsCached() []contracts.AppDto {
+	s.activeAppsMu.RLock()
+	cached := s.activeAppsCache
+	s.activeAppsMu.RUnlock()
+
+	if cached == nil {
+		s.activeAppsMu.Lock()
+		if s.activeAppsCache == nil {
+			s.activeAppsCache = s.queryActiveApps("")
+		}
+		cached = s.activeAppsCache
+		s.activeAppsMu.Unlock()
+	}
+
+	out := make([]contracts.AppDto, len(cached))
+	copy(out, cached)
+	return out
+}
+
+// invalidateActiveAppsCache drops the cached active-app snapshot so the next
+// ListAllActiveApps("") call reloads from SQLite. Called once per successful
+// SyncSourceCatalog, not per canonical app rebuilt within it, so a single source refresh
+// (which can touch many canonical apps) only pays for one reload.
+func (s *Store) invalidateActiveAppsCache() {
+	s.activeAppsMu.Lock()
+	s.activeAppsCache = nil
+	s.activeAppsMu.Unlock()
 }
 
 // ListByCanonicalIDs hydrates a specific set of canonical ids (used for search-index
@@ -959,7 +1012,7 @@ func (s *Store) ListByCanonicalIDs(ids []string) []contracts.AppDto {
 		}
 		var app contracts.AppDto
 		if json.Unmarshal([]byte(appJSON), &app) == nil {
-			byID[id] = app
+			byID[strings.ToLower(id)] = app
 		}
 	}
 

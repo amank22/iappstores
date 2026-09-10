@@ -577,13 +577,49 @@ var categoryDefs = []categoryDef{
 }
 
 // GetCategoryFacets ports getCategoryFacets(): appCount per category is the number of
-// *grouped* (deduped-by-bundle-id) apps, matching the JS implementation exactly.
+// *grouped* (deduped-by-bundle-id) apps, matching the JS implementation exactly -- but
+// computed in one O(n) pass instead of re-filtering and re-grouping (full sort + dedupe of
+// download options/versions) the whole input once per category. Grouping/sorting the actual
+// merged AppDto objects, as the old per-category FilterAppsByCategory+GroupAppsByBundleId
+// pipeline did, is wasted work here since only the distinct-group *count* is needed: the
+// count of distinct appGroupKey values is identical to len(GroupAppsByBundleId(...)) without
+// building the merged representative apps at all.
 func GetCategoryFacets(apps []contracts.AppDto) []contracts.AppCategoryFacet {
+	perCategory := map[contracts.AppCategory]map[string]struct{}{}
+	all := map[string]struct{}{}
+	for _, app := range apps {
+		key := appGroupKey(app)
+		all[key] = struct{}{}
+
+		set, ok := perCategory[app.Category]
+		if !ok {
+			set = map[string]struct{}{}
+			perCategory[app.Category] = set
+		}
+		set[key] = struct{}{}
+	}
+
+	counts := make(map[contracts.AppCategory]int, len(perCategory))
+	for cat, set := range perCategory {
+		counts[cat] = len(set)
+	}
+	return BuildCategoryFacets(counts, len(all))
+}
+
+// BuildCategoryFacets assembles the ordered facet list from per-category distinct-app
+// counts plus a total (used for the "all"/"recent" pseudo-categories, which both cover
+// every app regardless of its own category). Exported so callers that already have exact
+// counts from elsewhere -- e.g. catalog.Store.CountByCategory()'s indexed SQL GROUP BY over
+// the whole active catalog -- can build the same response shape without re-deriving counts
+// from an in-memory app slice.
+func BuildCategoryFacets(counts map[contracts.AppCategory]int, total int) []contracts.AppCategoryFacet {
 	out := make([]contracts.AppCategoryFacet, 0, len(categoryDefs))
 	for _, def := range categoryDefs {
-		filtered := FilterAppsByCategory(apps, def.id)
-		grouped := GroupAppsByBundleId(filtered)
-		out = append(out, contracts.AppCategoryFacet{ID: def.id, Name: def.name, AppCount: len(grouped)})
+		n := total
+		if def.id != contracts.CategoryAll && def.id != contracts.CategoryRecent {
+			n = counts[def.id]
+		}
+		out = append(out, contracts.AppCategoryFacet{ID: def.id, Name: def.name, AppCount: n})
 	}
 	return out
 }

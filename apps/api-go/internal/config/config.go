@@ -102,6 +102,16 @@ func RepoRefreshJitter() time.Duration {
 	return time.Duration(minutes * float64(time.Minute))
 }
 
+// DefaultRefreshMaxBackoff caps how rarely a persistently failing source gets retried: its
+// retry interval doubles with each consecutive failure (see repo.backoffDuration) but never
+// exceeds this.
+const DefaultRefreshMaxBackoff = 7 * 24 * time.Hour
+
+func RepoRefreshMaxBackoff() time.Duration {
+	hours := getPositiveFloat("REPO_REFRESH_MAX_BACKOFF_HOURS", float64(DefaultRefreshMaxBackoff/time.Hour))
+	return time.Duration(hours * float64(time.Hour))
+}
+
 // --- App Store enrichment ---
 
 func AppStoreEnrichmentDisabled() bool {
