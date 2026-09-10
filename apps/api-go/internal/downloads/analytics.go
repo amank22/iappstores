@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/iappstores/api-go/internal/contracts"
+	"github.com/iappstores/api-go/internal/dbconn"
 )
 
 type AnalyticsStore struct {
@@ -36,8 +37,15 @@ func increment(status, expected ProbeStatus) int {
 }
 
 // RecordDownloadAttempt mirrors recordDownloadAttempt(): appends a raw event row and
-// upserts the (app, source, url) rollup stats row in one transaction.
+// upserts the (app, source, url) rollup stats row in one transaction. Retries the whole
+// transaction with backoff on SQLITE_BUSY (see dbconn.RetryOnBusy).
 func (s *AnalyticsStore) RecordDownloadAttempt(in AnalyticsInput) error {
+	return dbconn.RetryOnBusy(func() error {
+		return s.recordDownloadAttemptOnce(in)
+	})
+}
+
+func (s *AnalyticsStore) recordDownloadAttemptOnce(in AnalyticsInput) error {
 	successInc := increment(in.ProbeStatus, ProbeSuccess)
 	failureInc := increment(in.ProbeStatus, ProbeHardFailure)
 	inconclusiveInc := increment(in.ProbeStatus, ProbeInconclusive)

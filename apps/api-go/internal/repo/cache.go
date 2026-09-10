@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iappstores/api-go/internal/contracts"
+	"github.com/iappstores/api-go/internal/dbconn"
 )
 
 // CacheStore is the SQLite-backed source_cache table (source raw JSON + TTL metadata).
@@ -75,31 +76,37 @@ func (s *CacheStore) Read(sourceID, sourceURL string) *CacheEntry {
 	return entry
 }
 
-// Write mirrors writeSourceCache().
+// Write mirrors writeSourceCache(). Retries with backoff on SQLITE_BUSY (see
+// dbconn.RetryOnBusy) since the concurrency-limited refresh worker can run several of
+// these writes at once against SQLite's single writer lock.
 func (s *CacheStore) Write(sourceID, sourceURL string, apps []contracts.AppDto, ttl time.Duration) error {
 	now := time.Now().UnixMilli()
 	appsJSON, err := json.Marshal(apps)
 	if err != nil {
 		return err
 	}
-	_, err = s.db.Exec(`
-		INSERT INTO source_cache (source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at)
-		VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
-		ON CONFLICT(source_id) DO UPDATE SET
-			source_url = excluded.source_url,
-			fetched_at = excluded.fetched_at,
-			expires_at = excluded.expires_at,
-			app_count = excluded.app_count,
-			apps_json = excluded.apps_json,
-			last_error = NULL,
-			last_error_at = NULL
-	`, sourceID, sourceURL, now, now+ttl.Milliseconds(), len(apps), string(appsJSON))
-	return err
+	return dbconn.RetryOnBusy(func() error {
+		_, err := s.db.Exec(`
+			INSERT INTO source_cache (source_id, source_url, fetched_at, expires_at, app_count, apps_json, last_error, last_error_at)
+			VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
+			ON CONFLICT(source_id) DO UPDATE SET
+				source_url = excluded.source_url,
+				fetched_at = excluded.fetched_at,
+				expires_at = excluded.expires_at,
+				app_count = excluded.app_count,
+				apps_json = excluded.apps_json,
+				last_error = NULL,
+				last_error_at = NULL
+		`, sourceID, sourceURL, now, now+ttl.Milliseconds(), len(apps), string(appsJSON))
+		return err
+	})
 }
 
 // WriteError mirrors writeSourceCacheError().
 func (s *CacheStore) WriteError(sourceID string, message string) error {
 	now := time.Now().UnixMilli()
-	_, err := s.db.Exec(`UPDATE source_cache SET last_error = ?, last_error_at = ? WHERE source_id = ?`, message, now, sourceID)
-	return err
+	return dbconn.RetryOnBusy(func() error {
+		_, err := s.db.Exec(`UPDATE source_cache SET last_error = ?, last_error_at = ? WHERE source_id = ?`, message, now, sourceID)
+		return err
+	})
 }

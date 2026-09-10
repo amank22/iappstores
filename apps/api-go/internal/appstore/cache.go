@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iappstores/api-go/internal/contracts"
+	"github.com/iappstores/api-go/internal/dbconn"
 )
 
 type CacheStatus string
@@ -129,36 +130,42 @@ func (s *CacheStore) WriteHit(country, bundleID string, metadata contracts.AppSt
 	if err != nil {
 		return err
 	}
-	_, err = s.db.Exec(`
-		INSERT INTO app_store_cache (country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at)
-		VALUES (?, ?, 'hit', ?, ?, ?, NULL, NULL)
-		ON CONFLICT(country, bundle_id) DO UPDATE SET
-			status = excluded.status, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at,
-			metadata_json = excluded.metadata_json, last_error = NULL, last_error_at = NULL
-	`, country, bundleID, now, now+ttl.Milliseconds(), string(b))
-	return err
+	return dbconn.RetryOnBusy(func() error {
+		_, err := s.db.Exec(`
+			INSERT INTO app_store_cache (country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at)
+			VALUES (?, ?, 'hit', ?, ?, ?, NULL, NULL)
+			ON CONFLICT(country, bundle_id) DO UPDATE SET
+				status = excluded.status, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at,
+				metadata_json = excluded.metadata_json, last_error = NULL, last_error_at = NULL
+		`, country, bundleID, now, now+ttl.Milliseconds(), string(b))
+		return err
+	})
 }
 
 func (s *CacheStore) WriteMiss(country, bundleID string, ttl time.Duration) error {
 	now := time.Now().UnixMilli()
-	_, err := s.db.Exec(`
-		INSERT INTO app_store_cache (country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at)
-		VALUES (?, ?, 'miss', ?, ?, NULL, NULL, NULL)
-		ON CONFLICT(country, bundle_id) DO UPDATE SET
-			status = excluded.status, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at,
-			metadata_json = NULL, last_error = NULL, last_error_at = NULL
-	`, country, bundleID, now, now+ttl.Milliseconds())
-	return err
+	return dbconn.RetryOnBusy(func() error {
+		_, err := s.db.Exec(`
+			INSERT INTO app_store_cache (country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at)
+			VALUES (?, ?, 'miss', ?, ?, NULL, NULL, NULL)
+			ON CONFLICT(country, bundle_id) DO UPDATE SET
+				status = excluded.status, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at,
+				metadata_json = NULL, last_error = NULL, last_error_at = NULL
+		`, country, bundleID, now, now+ttl.Milliseconds())
+		return err
+	})
 }
 
 func (s *CacheStore) WriteErrorResult(country, bundleID, message string, ttl time.Duration) error {
 	now := time.Now().UnixMilli()
-	_, err := s.db.Exec(`
-		INSERT INTO app_store_cache (country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at)
-		VALUES (?, ?, 'error', ?, ?, NULL, ?, ?)
-		ON CONFLICT(country, bundle_id) DO UPDATE SET
-			status = excluded.status, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at,
-			metadata_json = NULL, last_error = excluded.last_error, last_error_at = excluded.last_error_at
-	`, country, bundleID, now, now+ttl.Milliseconds(), message, now)
-	return err
+	return dbconn.RetryOnBusy(func() error {
+		_, err := s.db.Exec(`
+			INSERT INTO app_store_cache (country, bundle_id, status, fetched_at, expires_at, metadata_json, last_error, last_error_at)
+			VALUES (?, ?, 'error', ?, ?, NULL, ?, ?)
+			ON CONFLICT(country, bundle_id) DO UPDATE SET
+				status = excluded.status, fetched_at = excluded.fetched_at, expires_at = excluded.expires_at,
+				metadata_json = NULL, last_error = excluded.last_error, last_error_at = excluded.last_error_at
+		`, country, bundleID, now, now+ttl.Milliseconds(), message, now)
+		return err
+	})
 }

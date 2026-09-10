@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/iappstores/api-go/internal/contracts"
+	"github.com/iappstores/api-go/internal/dbconn"
 	"github.com/iappstores/api-go/internal/normalizer"
 )
 
@@ -475,42 +476,17 @@ func (s *Store) readRowTx(tx *sql.Tx, id string) *catalogRow {
 	return &r
 }
 
-// syncBusyRetryDelays are the backoff steps SyncSourceCatalog waits between retries of
-// a write transaction that lost a lock race under concurrent refreshes. SQLite's own
-// busy_timeout (set per-connection via the DSN) already makes each individual statement
-// wait up to 5s for the write lock, so a SQLITE_BUSY surfacing here means a whole
-// transaction lost that race outright (e.g. another writer held the lock for the full
-// timeout) -- retrying the transaction from scratch, not just the statement, is what's
-// needed, since a partial retry mid-transaction would leave it inconsistent.
-var syncBusyRetryDelays = []time.Duration{50 * time.Millisecond, 200 * time.Millisecond, 500 * time.Millisecond}
-
-// isBusyErr reports whether err indicates SQLite's writer lock was contended
-// (SQLITE_BUSY / "database is locked"), as opposed to a real data or logic error that
-// retrying would just reproduce.
-func isBusyErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "database is locked") || strings.Contains(msg, "sqlite_busy")
-}
-
 // SyncSourceCatalog mirrors syncSourceCatalog(): upserts every app currently reported by
 // a source as an active snapshot, marks previously-active snapshots from that source that
 // are no longer present as inactive, records version-build history + "new"/"version"
 // timeline events, and rebuilds every canonical app touched by this sync (including ones
 // that lost their last active snapshot, to run the missing/removed lifecycle). Retries the
-// whole transaction with backoff on SQLITE_BUSY, since concurrent source refreshes can
-// briefly contend for SQLite's single writer lock.
+// whole transaction with backoff on SQLITE_BUSY (see dbconn.RetryOnBusy), since concurrent
+// source refreshes can briefly contend for SQLite's single writer lock.
 func (s *Store) SyncSourceCatalog(ownerSourceID string, apps []contracts.AppDto, now int64) error {
-	var err error
-	for attempt := 0; ; attempt++ {
-		err = s.syncSourceCatalogOnce(ownerSourceID, apps, now)
-		if err == nil || !isBusyErr(err) || attempt >= len(syncBusyRetryDelays) {
-			return err
-		}
-		time.Sleep(syncBusyRetryDelays[attempt])
-	}
+	return dbconn.RetryOnBusy(func() error {
+		return s.syncSourceCatalogOnce(ownerSourceID, apps, now)
+	})
 }
 
 func (s *Store) syncSourceCatalogOnce(ownerSourceID string, apps []contracts.AppDto, now int64) error {
