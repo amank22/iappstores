@@ -6,7 +6,6 @@ import {
   SearchResponseSchema,
   SitemapAppsResponseSchema,
   SourcesResponseSchema,
-  TranslationResponseSchema,
   UpdatesResponseSchema,
   ArchivesResponseSchema,
   VersionsResponseSchema,
@@ -25,8 +24,7 @@ import {
   type SearchResponse,
   type SitemapAppsResponse,
   type SourceDto,
-  type SourcesResponse,
-  type TranslationResponse
+  type SourcesResponse
   ,type UpdatesResponse
   ,type ArchivesResponse
   ,type VersionsResponse
@@ -216,14 +214,4 @@ export async function searchApps(query: string, options: AppQueryOptions = {}): 
   }
 
   return request(`/api/search?${params.toString()}`, SearchResponseSchema);
-}
-
-export async function translateText(text: string, to = "en"): Promise<TranslationResponse> {
-  return request("/api/translate", TranslationResponseSchema, {
-    method: "POST",
-    body: {
-      text,
-      to
-    }
-  });
 }

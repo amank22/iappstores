@@ -8,7 +8,6 @@ import { PhotoProvider, PhotoView } from "react-photo-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { translateText } from "@/lib/api";
 import { trackAppDetailModalOpen, trackDownloadClick } from "@/lib/analytics";
 import { readDownloadedAppIds, recordDownloadedApp } from "@/lib/download-history";
 import { getAnonymousSessionId } from "@/lib/anonymous-session";
@@ -163,57 +162,18 @@ function AppIcon({
   );
 }
 
-function InlineTranslation({ text, compact = false }: { text: string; compact?: boolean }) {
-  const [translatedText, setTranslatedText] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isTranslating, setIsTranslating] = useState(false);
-  const fallbackUrl = getTranslateUrl(text);
-
-  async function handleTranslate(event: React.MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsTranslating(true);
-    setError(null);
-
-    try {
-      const response = await translateText(text);
-      setTranslatedText(response.translatedText);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not translate this text.");
-    } finally {
-      setIsTranslating(false);
-    }
-  }
-
+function InlineTranslation({ text }: { text: string; compact?: boolean }) {
   return (
-    <div className={compact ? "space-y-2" : "space-y-3"}>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          className="text-xs font-medium text-primary hover:underline disabled:pointer-events-none disabled:opacity-60"
-          disabled={isTranslating}
-          type="button"
-          onClick={handleTranslate}
-        >
-          {isTranslating ? "Translating..." : translatedText ? "Translate again" : "Translate to English"}
-        </button>
-        {error ? (
-          <a
-            className="text-xs font-medium text-primary hover:underline"
-            href={fallbackUrl}
-            rel="noreferrer"
-            target="_blank"
-            onClick={(event) => event.stopPropagation()}
-          >
-            Open Google Translate
-          </a>
-        ) : null}
-      </div>
-      {translatedText ? (
-        <p className={compact ? "line-clamp-4 rounded-lg bg-muted/40 p-3 text-sm leading-6 text-foreground" : "whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-foreground"}>
-          {translatedText}
-        </p>
-      ) : null}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    <div className="flex flex-wrap items-center gap-2">
+      <a
+        className="text-xs font-medium text-primary hover:underline"
+        href={getTranslateUrl(text)}
+        rel="noreferrer"
+        target="_blank"
+        onClick={(event) => event.stopPropagation()}
+      >
+        Open Google Translate
+      </a>
     </div>
   );
 }

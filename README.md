@@ -1,6 +1,6 @@
 # iappstores
 
-`iappstores` is a small npm workspace with a Node/Express API and a Next.js frontend for browsing iOS app store repository sources.
+`iappstores` is a Next.js frontend backed by a standalone Go API for browsing iOS app store repository sources.
 
 The v1 source list is defined in code and starts with the full FastSign AltStore/SideStore-compatible repository:
 
@@ -8,83 +8,102 @@ The v1 source list is defined in code and starts with the full FastSign AltStore
 
 ## Workspace
 
-- `apps/api` - Express API, repo fetching, caching, and normalization.
-- `apps/web` - Next.js App Router UI with Tailwind and shadcn-style components.
-- `packages/contracts` - shared zod schemas and inferred TypeScript types.
+- `apps/api-go` - Go API: repo fetching, normalization, SQLite (with FTS5 search) caching, App Store enrichment. Deploys as its own service.
+- `apps/web` - Next.js App Router UI with Tailwind and shadcn-style components. Deploys as its own service and talks to `apps/api-go` over the network.
+- `packages/contracts` - shared zod schemas and inferred TypeScript types describing the API's wire format (consumed by the web app; the Go API is a hand-maintained mirror of the same shapes).
 
-## Scripts
+`apps/api` (the original Node/Express/Bun implementation) has been retired in favor of `apps/api-go` — the Go rewrite fixed a persistent OOM issue by eliminating an in-memory full-catalog cache and moving to a much lower-footprint runtime. See `apps/api-go/README.md` (if present) or its package comments for details.
 
-```sh
-npm install
-npm run dev
-npm run rebuild
-npm run build
-npm run typecheck
-npm run lint
-npm run test
-npm run validate:sources
-```
-
-The root `rebuild` script cleans and rebuilds packages in dependency order, starting with shared contracts.
-
-`validate:sources` reads `repolist.txt`, fetches each unique URL, checks whether it returns compatible AltStore-style JSON, and prints working/failing sources with app counts and sample apps.
-
-## Docker
-
-The Docker image runs both the Express API and the Next.js frontend in one container for simple Coolify deployment.
+## Scripts (web + contracts)
 
 ```sh
-docker build -t iappstores .
-docker run --rm -p 3000:3000 iappstores
+bun install
+bun run dev
+bun run rebuild
+bun run build
+bun run typecheck
+bun run lint
+bun run test
 ```
 
-The frontend is served on port `3000`. The API runs inside the same container on port `4000`, and Next.js proxies `/api/*` requests to it.
+These scripts now only cover `apps/web` and `packages/contracts`. `apps/api-go` is a separate Go module with its own toolchain:
 
-The API keeps a persistent SQLite cache for normalized repository data. In Docker, the cache lives at `/data/iappstores.sqlite`; mount a Coolify volume to `/data` so the cache survives deploys and restarts.
+```sh
+cd apps/api-go
+go build ./...
+go vet ./...
+go test -race ./...
+```
 
-Optional cache settings:
+## Deployment
+
+`apps/web` and `apps/api-go` deploy as **two separate services** (e.g. two Coolify applications on the same Docker network), not one combined container. This lets each service's memory be limited and monitored independently.
+
+### apps/web
+
+```sh
+docker build -t iappstores-web .
+docker run --rm -p 3000:3000 -e API_INTERNAL_URL=http://iappstores-api-go:4000 iappstores-web
+```
+
+The frontend is served on port `3000`. `API_INTERNAL_URL` must point at the `apps/api-go` service's reachable address (e.g. its Docker network alias) so Next.js can proxy `/api/*` requests to it.
+
+```txt
+SITE_URL=https://your-domain.example
+NEXT_PUBLIC_SITE_URL=https://your-domain.example
+API_INTERNAL_URL=http://iappstores-api-go:4000
+```
+
+### apps/api-go
+
+```sh
+docker build -t iappstores-api-go apps/api-go
+docker run --rm -p 4000:4000 -v iappstores-data:/data iappstores-api-go
+```
+
+The Go API keeps a persistent SQLite cache (with FTS5 search) for normalized repository data. Mount a volume to `/data` so the cache survives deploys and restarts — without it, every restart re-fetches all sources from scratch.
+
+Optional cache settings (env vars, same names as the original API):
 
 ```txt
 DATA_DIR=/data
-SITE_URL=https://your-domain.example
-NEXT_PUBLIC_SITE_URL=https://your-domain.example
 REPO_CACHE_TTL_HOURS=24
-REPO_REFRESH_CONCURRENCY=6
-CATALOG_REBUILD_DEBOUNCE_MS=5000
-COLLECTION_CACHE_TTL_MINUTES=60
+REPO_REFRESH_CONCURRENCY=3
+REPO_TREE_FETCH_CONCURRENCY=4
 APP_STORE_COUNTRY=us
 APP_STORE_FALLBACK_COUNTRIES=in,gb,ca
 APP_STORE_LOOKUP_DELAY_MS=3500
 APP_STORE_CACHE_TTL_DAYS=30
 APP_STORE_NEGATIVE_CACHE_TTL_DAYS=7
+GOMEMLIMIT=180MiB
+GOGC=50
 ```
 
-App Store enrichment uses Apple’s public lookup API by bundle ID. It serves cached metadata immediately and refreshes missing or expired entries slowly in the background to avoid rate limits. Repository text remains visible as IPA source notes because it often explains patched or unlocked builds.
+`GOMEMLIMIT`/`GOGC` bound Go's garbage collector so steady-state memory stays well under typical small-VPS container limits — verified to hold a full 56-source cold refresh under ~180MB inside a 256MB container. Tune `GOMEMLIMIT` to roughly 35-40% of whatever memory limit you set on the container if that limit changes.
 
-The API materializes the whole grouped/hydrated catalog into memory once per source refresh instead of recomputing it per request. `CATALOG_REBUILD_DEBOUNCE_MS` controls how long it waits after a source refresh before rebuilding that snapshot, so many sources finishing close together (as they do on startup) coalesce into a single rebuild instead of one per source.
+App Store enrichment uses Apple's public lookup API by bundle ID. It serves cached metadata immediately and refreshes missing or expired entries slowly in the background to avoid rate limits. Repository text remains visible as IPA source notes because it often explains patched or unlocked builds.
 
-`COLLECTION_CACHE_TTL_MINUTES` controls how long `/api/collections/:slug` responses (trending apps, most downloaded, best-of lists, etc.) are cached before being recomputed against live download counts. These don't need to be as fresh as a live counter, so an hour-scale cache is fine.
+Unlike the original API, `apps/api-go` does **not** materialize the whole catalog into memory. Every request hydrates only the rows it needs from SQLite (with FTS5 for search and indexed columns for category/developer filtering), so there is no full-catalog object graph resident in the process at any time — this was the actual root cause of the original OOM issues, independent of runtime language.
 
-`SITE_URL` and `NEXT_PUBLIC_SITE_URL` are used for canonical URLs, Open Graph URLs, `robots.txt`, and `sitemap.xml`. Set both to your public Coolify domain in production. The GitHub Docker publishing workflow passes `https://iappstores.com` as a build argument so GHCR images are built with the production metadata base.
+Translation support (`/api/translate`, backed by an unofficial Google Translate scrape) was dropped in the Go rewrite. The frontend now links out to Google Translate directly instead of proxying through the API.
 
-For Coolify health checks, use:
+For Coolify health checks:
 
 ```txt
-Port: 3000
-Path: /health
-Expected status: 200
+apps/web:     Port 3000, Path /health
+apps/api-go:  Port 4000, Path /health
 ```
-
-The Docker image includes `curl` and a container healthcheck for `http://127.0.0.1:3000/health`, which Coolify can use during rolling deployments.
 
 ## CI and Publishing
 
-GitHub Actions uses separate workflows for verification and publishing. `Verify` runs on pull requests and pushes to `main`; `Publish Docker image` runs after `Verify` succeeds on `main` and publishes to GitHub Container Registry as:
+GitHub Actions uses separate workflows for verification and publishing. `Verify` runs on pull requests and pushes to `main` — it checks `apps/web`/`packages/contracts` (Bun) and `apps/api-go` (Go) independently. `Publish Docker image` runs after `Verify` succeeds on `main` and publishes the web image to GitHub Container Registry as:
 
 ```txt
 ghcr.io/<owner>/<repo>:latest
 ghcr.io/<owner>/<repo>:sha-<commit>
 ```
+
+`apps/api-go` currently deploys by building its Dockerfile directly from the git repository (not via a published registry image).
 
 No repository secrets are required for the default GHCR publishing flow; it uses `GITHUB_TOKEN`.
 

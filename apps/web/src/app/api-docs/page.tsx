@@ -14,7 +14,6 @@ const endpoints = [
   ["GET", "/api/developers", "List developers."],
   ["GET", "/api/collections/{slug}", "Get a curated collection."],
   ["GET", "/api/updates", "List new and updated apps."],
-  ["POST", "/api/translate", "Translate repository text."],
   ["GET", "/api/download", "Record then redirect to an original source download."],
   ["GET", "/health", "Check service health."]
 ];

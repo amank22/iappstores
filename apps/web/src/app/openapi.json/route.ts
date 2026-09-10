@@ -89,24 +89,6 @@ export function GET(): Response {
           ],
           responses: { "302": { description: "Redirect to the original download" }, "404": jsonResponse }
         }
-      },
-      "/api/translate": {
-        post: {
-          summary: "Translate repository text",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["text"],
-                  properties: { text: { type: "string" }, from: { type: "string" }, to: { type: "string" } }
-                }
-              }
-            }
-          },
-          responses: { "200": jsonResponse }
-        }
       }
     }
   };

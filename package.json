@@ -8,21 +8,17 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter='@iappstores/contracts' build && concurrently \"bun run dev:api\" \"bun run dev:web\"",
-    "dev:api": "bun run --filter='@iappstores/api' dev",
+    "dev": "bun run --filter='@iappstores/contracts' build && bun run dev:web",
     "dev:web": "bun run --filter='@iappstores/web' dev",
-    "start": "concurrently -k -n api,web \"bun run start:api\" \"bun run start:web\"",
-    "start:api": "bun run --filter='@iappstores/api' start",
+    "start": "bun run start:web",
     "start:web": "bun run --filter='@iappstores/web' start",
-    "build": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' build && bun run --filter='@iappstores/web' build",
-    "rebuild": "bun run --filter='@iappstores/contracts' clean && bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' clean && bun run --filter='@iappstores/api' build && bun run --filter='@iappstores/web' clean && bun run --filter='@iappstores/web' build",
-    "lint": "bun run --filter='@iappstores/api' lint && bun run --filter='@iappstores/web' lint",
-    "typecheck": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' typecheck && bun run --filter='@iappstores/web' typecheck",
-    "test": "bun run --filter='@iappstores/api' test",
-    "validate:sources": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/api' validate:sources ../../repolist.txt"
+    "build": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/web' build",
+    "rebuild": "bun run --filter='@iappstores/contracts' clean && bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/web' clean && bun run --filter='@iappstores/web' build",
+    "lint": "bun run --filter='@iappstores/web' lint",
+    "typecheck": "bun run --filter='@iappstores/contracts' build && bun run --filter='@iappstores/web' typecheck",
+    "test": "bun run --filter='@iappstores/web' test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
     "typescript": "^5.8.3"
   },
   "trustedDependencies": ["sharp", "esbuild"],

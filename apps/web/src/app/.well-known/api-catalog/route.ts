@@ -30,7 +30,6 @@ export function GET(): Response {
         api("/api/developers"),
         api("/api/collections"),
         api("/api/updates"),
-        api("/api/translate"),
         api("/api/download")
       ]
     },

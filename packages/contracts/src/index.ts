@@ -103,12 +103,6 @@ export const AppIdParamSchema = z.object({
   appId: z.string().trim().min(1)
 });
 
-export const TranslationRequestSchema = z.object({
-  text: z.string().trim().min(1).max(4_000),
-  from: z.string().trim().toLowerCase().regex(/^(?:[a-z]{2}|auto)$/).default("auto"),
-  to: z.string().trim().toLowerCase().regex(/^[a-z]{2}$/).default("en")
-});
-
 export const DownloadQuerySchema = z.object({
   appId: QueryStringSchema,
   sourceId: QueryStringSchema,
@@ -394,13 +388,6 @@ export const SitemapAppsResponseSchema = z.object({
   apps: z.array(SitemapAppSchema)
 });
 
-export const TranslationResponseSchema = z.object({
-  sourceText: z.string(),
-  translatedText: z.string(),
-  from: z.string().nullable(),
-  to: z.string()
-});
-
 export const PopularDownloadStatsItemSchema = z.object({
   appId: z.string(),
   bundleIdentifier: z.string().nullable(),
@@ -444,7 +431,6 @@ export const ApiErrorResponseSchema = z.object({
 export type SourceIdParam = z.infer<typeof SourceIdParamSchema>;
 export type DeveloperSlugParam = z.infer<typeof DeveloperSlugParamSchema>;
 export type AppIdParam = z.infer<typeof AppIdParamSchema>;
-export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
 export type DownloadQuery = z.infer<typeof DownloadQuerySchema>;
 export type UpdatesQuery = z.infer<typeof UpdatesQuerySchema>;
 export type CollectionSlug = z.infer<typeof CollectionSlugSchema>;
@@ -482,7 +468,6 @@ export type AppListResponse = z.infer<typeof AppListResponseSchema>;
 export type AppResponse = z.infer<typeof AppResponseSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 export type SitemapAppsResponse = z.infer<typeof SitemapAppsResponseSchema>;
-export type TranslationResponse = z.infer<typeof TranslationResponseSchema>;
 export type PopularDownloadStatsItem = z.infer<typeof PopularDownloadStatsItemSchema>;
 export type ProblemDownloadLinkStatsItem = z.infer<typeof ProblemDownloadLinkStatsItemSchema>;
 export type DownloadStatsResponse = z.infer<typeof DownloadStatsResponseSchema>;
