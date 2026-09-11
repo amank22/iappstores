@@ -47,13 +47,20 @@ func Open(path string) (*sql.DB, error) {
 		"PRAGMA foreign_keys = ON",
 	}
 	for _, p := range pragmas {
-		if _, err := db.Exec(p); err != nil {
+		// Coolify (and similar zero-downtime deployers) can start the new container before
+		// the outgoing one has released the SQLite file lock, especially if the old process
+		// was killed for exceeding its memory limit and takes a moment to exit -- retry past
+		// that handoff window instead of failing the whole deployment on a transient lock.
+		if err := RetryOnBusy(func() error {
+			_, execErr := db.Exec(p)
+			return execErr
+		}); err != nil {
 			db.Close()
 			return nil, fmt.Errorf("pragma %q: %w", p, err)
 		}
 	}
 
-	if err := migrate(db); err != nil {
+	if err := RetryOnBusy(func() error { return migrate(db) }); err != nil {
 		db.Close()
 		return nil, err
 	}
