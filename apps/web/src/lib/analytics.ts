@@ -63,3 +63,11 @@ export function trackDownloadClick(fields: DownloadAnalyticsFields): void {
     event_category: "download"
   });
 }
+
+export function trackCrossPromoClick(fields: { placement: string; destination: string }): void {
+  trackEvent("cross_promo_click", {
+    placement: fields.placement,
+    destination: fields.destination,
+    event_category: "cross_promo"
+  });
+}

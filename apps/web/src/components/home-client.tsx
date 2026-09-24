@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { Pagination, SourceDto } from "@iappstores/contracts";
 import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { AppBrowser } from "@/components/app-browser";
+import { CrossPromoBanner } from "@/components/cross-promo-banner";
+import { PromoAppCard } from "@/components/promo-app-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchApps, searchApps, type AppQueryOptions } from "@/lib/api";
@@ -89,6 +91,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           </p>
         </div>
       </div>
+      <CrossPromoBanner />
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
         <section className="overflow-hidden rounded-lg bg-card text-card-foreground ring-1 ring-foreground/10">
           <div className="space-y-3 p-4 sm:p-5">
@@ -123,6 +126,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           title="Apps"
           onSourcesChange={setSources}
           onPaginationChange={setPagination}
+          pinnedItem={<PromoAppCard />}
         />
 
         <section className="space-y-5 rounded-lg bg-card p-4 text-card-foreground ring-1 ring-foreground/10 sm:p-6">

@@ -15,3 +15,13 @@ export function getSiteUrl(): string {
 export function getAbsoluteUrl(path: string): string {
   return new URL(path, getSiteUrl()).toString();
 }
+
+export const CORRECT_MY_PAPER_URL = "https://correctmypaper.com";
+
+export function getCorrectMyPaperUrl(medium: string): string {
+  const url = new URL(CORRECT_MY_PAPER_URL);
+  url.searchParams.set("utm_source", "iappstores");
+  url.searchParams.set("utm_medium", medium);
+  url.searchParams.set("utm_campaign", "cross_promo");
+  return url.toString();
+}
