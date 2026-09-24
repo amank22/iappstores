@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type {
   AppCategory,
   AppCategoryFacet,
@@ -154,6 +155,8 @@ export type AppBrowserProps = {
   /** Optional: lets a parent mirror sources/pagination for its own display (e.g. hero badges). */
   onSourcesChange?: (sources: SourceDto[]) => void;
   onPaginationChange?: (pagination: Pagination) => void;
+  /** Optional: rendered as the first grid item, outside of `apps`/pagination state (e.g. a promo card). */
+  pinnedItem?: ReactNode;
 };
 
 export function AppBrowser({
@@ -172,7 +175,8 @@ export function AppBrowser({
   pageSize = HOME_PAGE_SIZE,
   title = "Apps",
   onSourcesChange,
-  onPaginationChange
+  onPaginationChange,
+  pinnedItem
 }: AppBrowserProps) {
   const isLocal = localApps !== undefined;
   const initialUrlState = useMemo(
@@ -721,6 +725,7 @@ export function AppBrowser({
           <AppGridSkeleton />
         ) : apps.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {pinnedItem}
             {apps.map((app) => (
               <AppCard
                 key={app.id}
