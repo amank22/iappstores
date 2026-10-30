@@ -19,7 +19,10 @@ env:
   SITE_URL: https://iappstores.com
   API_INTERNAL_URL: http://iappstores-api-go:4000
   COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+  COOLIFY_API_WEBHOOK_URL: ${{ secrets.COOLIFY_API_WEBHOOK_URL }}
   COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+  CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+  CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
 jobs:
   publish:
@@ -64,13 +67,33 @@ jobs:
             NEXT_PUBLIC_SITE_URL=${{ env.SITE_URL }}
             API_INTERNAL_URL=${{ env.API_INTERNAL_URL }}
 
+      # Coolify sits behind Cloudflare Access. Without the service-token headers
+      # it answers 302 to a login page, which `--fail --location` would follow and
+      # report as success. So do not follow redirects and require a 2xx.
+      # COOLIFY_WEBHOOK_URL deploys the web image; COOLIFY_API_WEBHOOK_URL
+      # (optional) rebuilds iappstores-api-go from this repo.
       - name: Trigger Coolify deployment
-        if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' }}
+        if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' && env.CF_ACCESS_CLIENT_ID != '' && env.CF_ACCESS_CLIENT_SECRET != '' }}
         run: |
-          curl --fail --silent --show-error --location \
-            --request POST "${COOLIFY_WEBHOOK_URL}" \
-            --header "Authorization: Bearer ${COOLIFY_API_TOKEN}"
+          set -uo pipefail
+          status=0
+          for url in "${COOLIFY_WEBHOOK_URL}" "${COOLIFY_API_WEBHOOK_URL}"; do
+            [ -n "$url" ] || continue
+            code=$(curl --silent --show-error --output /tmp/deploy.json --write-out '%{http_code}' \
+              --request POST "$url" \
+              --header "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
+              --header "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
+              --header "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}")
+            if [ "${code:0:1}" != "2" ]; then
+              echo "Coolify deploy returned HTTP ${code} (302 = Cloudflare Access rejected the service token):"
+              cat /tmp/deploy.json
+              status=1
+            else
+              cat /tmp/deploy.json; echo
+            fi
+          done
+          exit $status
 
       - name: Skip Coolify deployment
-        if: ${{ env.COOLIFY_WEBHOOK_URL == '' || env.COOLIFY_API_TOKEN == '' }}
-        run: echo "Skipping Coolify deployment because COOLIFY_WEBHOOK_URL or COOLIFY_API_TOKEN is not configured."
+        if: ${{ env.COOLIFY_WEBHOOK_URL == '' || env.COOLIFY_API_TOKEN == '' || env.CF_ACCESS_CLIENT_ID == '' || env.CF_ACCESS_CLIENT_SECRET == '' }}
+        run: echo "Skipping Coolify deployment because COOLIFY_WEBHOOK_URL, COOLIFY_API_TOKEN, CF_ACCESS_CLIENT_ID or CF_ACCESS_CLIENT_SECRET is not configured."

@@ -107,14 +107,19 @@ ghcr.io/<owner>/<repo>:sha-<commit>
 
 No repository secrets are required for the default GHCR publishing flow; it uses `GITHUB_TOKEN`.
 
-To auto-deploy the published image in Coolify, add these optional GitHub repository secrets:
+To auto-deploy in Coolify, add these optional GitHub repository secrets:
 
 ```txt
-COOLIFY_WEBHOOK_URL=<Coolify deploy webhook URL>
+COOLIFY_WEBHOOK_URL=<Coolify deploy webhook URL for the web app>
+COOLIFY_API_WEBHOOK_URL=<optional: deploy webhook URL for apps/api-go, which Coolify builds from git>
 COOLIFY_API_TOKEN=<Coolify API token with deploy permission>
+CF_ACCESS_CLIENT_ID=<Cloudflare Access service token id>
+CF_ACCESS_CLIENT_SECRET=<Cloudflare Access service token secret>
 ```
 
-When both secrets are present, the Docker publishing workflow triggers the Coolify deploy webhook after pushing the GHCR image.
+The webhook URLs look like `https://<coolify-host>/api/v1/deploy?uuid=<APP_UUID>&force=false`.
+The Cloudflare Access pair is required when the Coolify API sits behind Cloudflare Access: without it Coolify answers `302` to a login page.
+When the first, third, fourth and fifth secrets are present, the Docker publishing workflow triggers the web deploy after pushing the GHCR image, and also the API deploy if `COOLIFY_API_WEBHOOK_URL` is set. The step fails on any non-2xx response.
 
 ## License
 
