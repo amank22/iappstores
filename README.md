@@ -110,15 +110,16 @@ No repository secrets are required for the default GHCR publishing flow; it uses
 To auto-deploy in Coolify, add these optional GitHub repository secrets:
 
 ```txt
-COOLIFY_WEBHOOK_URL=<Coolify deploy webhook URL for the web app>
-COOLIFY_API_WEBHOOK_URL=<optional: deploy webhook URL for apps/api-go, which Coolify builds from git>
+COOLIFY_WEBHOOK_URL=<tailnet deploy URL for the web app>
+COOLIFY_API_WEBHOOK_URL=<optional: tailnet deploy URL for apps/api-go, which Coolify builds from git>
 COOLIFY_API_TOKEN=<Coolify API token with deploy permission>
-CF_ACCESS_CLIENT_ID=<Cloudflare Access service token id>
-CF_ACCESS_CLIENT_SECRET=<Cloudflare Access service token secret>
+TS_OAUTH_CLIENT_ID=<Tailscale OAuth client id>
+TS_OAUTH_SECRET=<Tailscale OAuth client secret>
 ```
 
-The webhook URLs look like `https://<coolify-host>/api/v1/deploy?uuid=<APP_UUID>&force=false`.
-The Cloudflare Access pair is required when the Coolify API sits behind Cloudflare Access: without it Coolify answers `302` to a login page.
+The deploy URLs look like `http://<server-tailscale-ip>:8000/api/v1/deploy?uuid=<APP_UUID>&force=false`.
+The workflow joins your tailnet as an ephemeral node tagged `tag:ci` (the OAuth client needs the `auth_keys` write scope and that tag, and your ACL must let `tag:ci` reach the Coolify port).
+It goes over Tailscale because a Coolify API behind Cloudflare challenges GitHub's runner IPs.
 When the first, third, fourth and fifth secrets are present, the Docker publishing workflow triggers the web deploy after pushing the GHCR image, and also the API deploy if `COOLIFY_API_WEBHOOK_URL` is set. The step fails on any non-2xx response.
 
 ## License

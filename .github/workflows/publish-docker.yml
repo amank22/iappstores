@@ -21,8 +21,8 @@ env:
   COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
   COOLIFY_API_WEBHOOK_URL: ${{ secrets.COOLIFY_API_WEBHOOK_URL }}
   COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-  CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-  CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+  TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+  TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
 
 jobs:
   publish:
@@ -67,25 +67,31 @@ jobs:
             NEXT_PUBLIC_SITE_URL=${{ env.SITE_URL }}
             API_INTERNAL_URL=${{ env.API_INTERNAL_URL }}
 
-      # Coolify sits behind Cloudflare Access. Without the service-token headers
-      # it answers 302 to a login page, which `--fail --location` would follow and
-      # report as success. So do not follow redirects and require a 2xx.
-      # COOLIFY_WEBHOOK_URL deploys the web image; COOLIFY_API_WEBHOOK_URL
-      # (optional) rebuilds iappstores-api-go from this repo.
+      # Coolify is reached over Tailscale: Cloudflare's Bot Fight Mode challenges
+      # GitHub's runner IPs, so the public hostname does not work from CI.
+      # COOLIFY_WEBHOOK_URL deploys the web image and COOLIFY_API_WEBHOOK_URL
+      # (optional) rebuilds iappstores-api-go from this repo. Both are tailnet
+      # URLs: http://<server tailscale ip>:8000/api/v1/deploy?uuid=<app uuid>&force=false
+      - name: Connect to Tailscale
+        if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' && env.TS_OAUTH_CLIENT_ID != '' && env.TS_OAUTH_SECRET != '' }}
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
       - name: Trigger Coolify deployment
-        if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' && env.CF_ACCESS_CLIENT_ID != '' && env.CF_ACCESS_CLIENT_SECRET != '' }}
+        if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' && env.TS_OAUTH_CLIENT_ID != '' && env.TS_OAUTH_SECRET != '' }}
         run: |
           set -uo pipefail
           status=0
           for url in "${COOLIFY_WEBHOOK_URL}" "${COOLIFY_API_WEBHOOK_URL}"; do
             [ -n "$url" ] || continue
-            code=$(curl --silent --show-error --output /tmp/deploy.json --write-out '%{http_code}' \
+            code=$(curl --silent --show-error --max-time 60 --output /tmp/deploy.json --write-out '%{http_code}' \
               --request POST "$url" \
-              --header "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
-              --header "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
-              --header "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}")
+              --header "Authorization: Bearer ${COOLIFY_API_TOKEN}")
             if [ "${code:0:1}" != "2" ]; then
-              echo "Coolify deploy returned HTTP ${code} (302 = Cloudflare Access rejected the service token):"
+              echo "Coolify deploy returned HTTP ${code}:"
               cat /tmp/deploy.json
               status=1
             else
@@ -95,5 +101,5 @@ jobs:
           exit $status
 
       - name: Skip Coolify deployment
-        if: ${{ env.COOLIFY_WEBHOOK_URL == '' || env.COOLIFY_API_TOKEN == '' || env.CF_ACCESS_CLIENT_ID == '' || env.CF_ACCESS_CLIENT_SECRET == '' }}
-        run: echo "Skipping Coolify deployment because COOLIFY_WEBHOOK_URL, COOLIFY_API_TOKEN, CF_ACCESS_CLIENT_ID or CF_ACCESS_CLIENT_SECRET is not configured."
+        if: ${{ env.COOLIFY_WEBHOOK_URL == '' || env.COOLIFY_API_TOKEN == '' || env.TS_OAUTH_CLIENT_ID == '' || env.TS_OAUTH_SECRET == '' }}
+        run: echo "Skipping Coolify deployment because COOLIFY_WEBHOOK_URL, COOLIFY_API_TOKEN, TS_OAUTH_CLIENT_ID or TS_OAUTH_SECRET is not configured."
