@@ -74,7 +74,7 @@ jobs:
       # URLs: http://<server tailscale ip>:8000/api/v1/deploy?uuid=<app uuid>&force=false
       - name: Connect to Tailscale
         if: ${{ env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != '' && env.TS_OAUTH_CLIENT_ID != '' && env.TS_OAUTH_SECRET != '' }}
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
