@@ -1,8 +1,8 @@
 // Package catalog ports catalogStore.ts onto the shared *sql.DB: per-source snapshot
 // tracking, canonical-app rebuilding with missing/removed lifecycle rules, FTS5 search,
-// version history, and update-event archives. This intentionally replaces
-// catalogMaterializer.ts's full-in-memory-catalog pattern -- there is no in-process object
-// graph of the whole catalog here, every read hydrates only the rows it needs from SQLite.
+// version history, and update-event archives. Reads hydrate only the rows they need from
+// SQLite, except unfiltered browse/search, which use one cached list of active apps that
+// is rebuilt in the background after each source sync (see listAllActiveAppsCached).
 package catalog
 
 import (
@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/iappstores/api-go/internal/contracts"
@@ -36,6 +37,13 @@ type Store struct {
 
 	activeAppsMu    sync.RWMutex
 	activeAppsCache []contracts.AppDto
+	// activeAppsSeq is the catalogSeq value the cache reflects.
+	activeAppsSeq uint64
+
+	// catalogSeq is bumped after every committed source sync. rebuildMu serializes
+	// cache (re)builds so at most one extra copy of the catalog is in memory at a time.
+	catalogSeq atomic.Uint64
+	rebuildMu  sync.Mutex
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -494,7 +502,7 @@ func (s *Store) SyncSourceCatalog(ownerSourceID string, apps []contracts.AppDto,
 		return s.syncSourceCatalogOnce(ownerSourceID, apps, now)
 	})
 	if err == nil {
-		s.invalidateActiveAppsCache()
+		s.refreshActiveAppsCache(s.catalogSeq.Add(1))
 	}
 	return err
 }
@@ -952,10 +960,11 @@ func (s *Store) queryActiveApps(category string) []contracts.AppDto {
 	return out
 }
 
-// listAllActiveAppsCached serves the unfiltered active-app list from activeAppsCache,
-// populating it on a miss. The cache is invalidated wholesale by invalidateActiveAppsCache
-// whenever SyncSourceCatalog commits (the only place catalog_apps rows change), so a hit
-// always reflects the current database -- there's no TTL to tune or go stale against.
+// listAllActiveAppsCached serves the unfiltered active-app list from activeAppsCache.
+// Only the very first call loads it in the request path; after that, SyncSourceCatalog
+// rebuilds it in the background sync goroutine (see refreshActiveAppsCache), so user
+// requests never wait on a full-catalog reload, and a read after a sync returns still
+// sees that sync's changes.
 // Every caller gets its own shallow copy of the cached slice so appending to (or, in
 // principle, mutating an element of) a returned slice can never corrupt the shared cache.
 func (s *Store) listAllActiveAppsCached() []contracts.AppDto {
@@ -964,12 +973,14 @@ func (s *Store) listAllActiveAppsCached() []contracts.AppDto {
 	s.activeAppsMu.RUnlock()
 
 	if cached == nil {
-		s.activeAppsMu.Lock()
-		if s.activeAppsCache == nil {
-			s.activeAppsCache = s.queryActiveApps("")
-		}
+		s.rebuildMu.Lock()
+		s.activeAppsMu.RLock()
 		cached = s.activeAppsCache
-		s.activeAppsMu.Unlock()
+		s.activeAppsMu.RUnlock()
+		if cached == nil {
+			cached = s.loadActiveAppsCache()
+		}
+		s.rebuildMu.Unlock()
 	}
 
 	out := make([]contracts.AppDto, len(cached))
@@ -977,14 +988,36 @@ func (s *Store) listAllActiveAppsCached() []contracts.AppDto {
 	return out
 }
 
-// invalidateActiveAppsCache drops the cached active-app snapshot so the next
-// ListAllActiveApps("") call reloads from SQLite. Called once per successful
-// SyncSourceCatalog, not per canonical app rebuilt within it, so a single source refresh
-// (which can touch many canonical apps) only pays for one reload.
-func (s *Store) invalidateActiveAppsCache() {
+// refreshActiveAppsCache rebuilds the cached active-app list after the sync numbered seq
+// has committed. It runs in the caller's (background refresh) goroutine and swaps the new
+// list in when done; readers keep using the previous list meanwhile. It is a no-op while
+// nothing has loaded the cache yet (the first read loads it) and when a rebuild that
+// started after this sync committed has already covered it, so concurrent syncs coalesce.
+func (s *Store) refreshActiveAppsCache(seq uint64) {
+	s.rebuildMu.Lock()
+	defer s.rebuildMu.Unlock()
+
+	s.activeAppsMu.RLock()
+	loaded, builtSeq := s.activeAppsCache != nil, s.activeAppsSeq
+	s.activeAppsMu.RUnlock()
+	if !loaded || builtSeq >= seq {
+		return
+	}
+	s.loadActiveAppsCache()
+}
+
+// loadActiveAppsCache reads the active apps from SQLite and installs them as the cache.
+// Callers must hold rebuildMu.
+func (s *Store) loadActiveAppsCache() []contracts.AppDto {
+	// Every sync with a sequence number <= seq committed before this query starts, so
+	// the result reflects at least that state of the catalog.
+	seq := s.catalogSeq.Load()
+	apps := s.queryActiveApps("")
 	s.activeAppsMu.Lock()
-	s.activeAppsCache = nil
+	s.activeAppsCache = apps
+	s.activeAppsSeq = seq
 	s.activeAppsMu.Unlock()
+	return apps
 }
 
 // ListByCanonicalIDs hydrates a specific set of canonical ids (used for search-index

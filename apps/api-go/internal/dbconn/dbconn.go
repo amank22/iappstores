@@ -25,26 +25,28 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 
-	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)", path)
+	// Per-connection pragmas go in the DSN so every pooled connection gets them; a plain
+	// db.Exec("PRAGMA ...") only reaches whichever single connection runs it.
+	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"+
+		"&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)", path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
-	// A single shared *sql.DB is safe for concurrent use, but SQLite itself only allows
-	// one writer at a time; capping MaxOpenConns keeps modernc.org/sqlite's per-connection
-	// memory (each holds its own page cache) bounded on a small VPS while WAL mode still
-	// lets readers proceed concurrently with a writer.
-	db.SetMaxOpenConns(4)
+	// SQLite allows one writer at a time, but WAL lets readers run alongside it, so the
+	// pool needs room for reads while the background source refresh holds connections in
+	// write transactions (REPO_REFRESH_CONCURRENCY syncs at once, plus App Store lookups).
+	// With 4, a refresh could take every connection and user requests queued for seconds.
+	// Each connection keeps SQLite's default ~2MB page cache, so 8 stays small.
+	db.SetMaxOpenConns(8)
 	db.SetConnMaxLifetime(0)
 
+	// Larger page cache and memory-mapped reads for the first connection only, as before;
+	// applying them to every pooled connection would multiply SQLite's memory use.
 	pragmas := []string{
-		"PRAGMA journal_mode = WAL",
-		"PRAGMA busy_timeout = 5000",
-		"PRAGMA synchronous = NORMAL",
-		"PRAGMA cache_size = -8000",   // ~8MB page cache, keeps SQLite's own footprint capped
+		"PRAGMA cache_size = -8000",   // ~8MB page cache
 		"PRAGMA mmap_size = 67108864", // 64MB
-		"PRAGMA foreign_keys = ON",
 	}
 	for _, p := range pragmas {
 		if _, err := db.Exec(p); err != nil {
