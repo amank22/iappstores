@@ -47,7 +47,8 @@ Translation (`/api/translate`, `TRANSLATION_DISABLED`) no longer exists — it w
 - All persistence lives in one shared SQLite database (`apps/api-go/internal/dbconn`) accessed through a single `*sql.DB` connection pool — not four separate handles like the original TS code. `apps/api-go/internal/catalog` owns the catalog schema (with FTS5 search and missing/removed lifecycle rules), `internal/repo` owns the raw per-source cache, `internal/appstore` owns App Store metadata caching, `internal/downloads` owns download analytics.
 - App Store metadata is cached in the same SQLite database. Cached hits attach immediately; missing or expired lookups are queued and refreshed slowly in the background (goroutine + channel) to avoid Apple lookup rate limits.
 - The `json-ipa-repos` source is special: it can expand a GitHub tree into many child JSON repos. The checked-in local tree manifest is `apps/api-go/internal/sources/data/json-ipa-repos.json`.
-- There is no in-memory full-catalog object graph anywhere in `apps/api-go` — every read (browse, search, developer pages, facets) queries SQLite directly for just the rows it needs. This is a deliberate architectural change from the original TS code's `catalogMaterializer.ts`, not an oversight; do not reintroduce a full-catalog cache without discussing the memory tradeoff it was removed to fix.
+- SQLite is the source of truth; most reads (app detail, developer pages, facets, source-filtered lists) query just the rows they need. The one exception is `catalog.Store`'s active-app cache (since #24): unfiltered `/api/apps` and `/api/search` filter an in-memory list of all active apps (~15MB of JSON for ~5k apps). Only the first read loads it in a request; after that `SyncSourceCatalog` rebuilds it in the background refresh goroutine and swaps it in, so requests never wait on a reload. Rebuilds are serialized, so at most one extra copy exists at a time. Don't add further full-catalog caches without weighing memory: the original TS `catalogMaterializer.ts` OOMed by keeping several.
+- The SQLite pool (`internal/dbconn`) has 8 connections. A source refresh holds several in write transactions; with 4, user reads queued behind it for seconds. Per-connection pragmas belong in the DSN, since `db.Exec("PRAGMA ...")` only reaches one pooled connection.
 
 ## API Surface
 
@@ -125,7 +126,7 @@ Notes:
 ## Coding Conventions
 
 - `apps/web`/`packages/contracts`: keep TypeScript strict and ESM-compatible.
-- `apps/api-go`: idiomatic Go, package boundaries mirror the original TS module boundaries (see Architecture Notes above). Keep the "no full-catalog in memory" invariant when adding features.
+- `apps/api-go`: idiomatic Go, package boundaries mirror the original TS module boundaries (see Architecture Notes above). Avoid adding new full-catalog in-memory caches (see Architecture Notes).
 - Prefer shared contract schemas (`packages/contracts`) over duplicated request/response types on the web side; keep the Go structs in `apps/api-go/internal/contracts` in sync by hand when the wire format changes.
 - Keep repository notes intact. App Store metadata should augment repository data, not replace the repository title, notes, or download options.
 - Avoid blocking user-facing API responses on slow external App Store lookups; use cached metadata and background queueing.

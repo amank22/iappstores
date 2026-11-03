@@ -19,6 +19,14 @@ func newTestClient(t *testing.T) *Client {
 	return NewClient(NewCacheStore(db))
 }
 
+// pauseWorker stops QueueLookup's background worker from starting, so tests can inspect
+// the queue without racing a worker that drains it (and calls the real App Store API).
+func pauseWorker(c *Client) {
+	c.mu.Lock()
+	c.processing = true
+	c.mu.Unlock()
+}
+
 func TestEnrichAppsWithCachedAppStoreMetadataOnlyUsesCache(t *testing.T) {
 	client := newTestClient(t)
 	bundleID := "com.example.cached"
@@ -36,6 +44,7 @@ func TestEnrichAppsWithCachedAppStoreMetadataOnlyUsesCache(t *testing.T) {
 
 func TestEnrichAppsQueuesLookupWhenUncached(t *testing.T) {
 	client := newTestClient(t)
+	pauseWorker(client)
 	bundleID := "com.example.uncached"
 	apps := []contracts.AppDto{{ID: "1", Name: "App", BundleIdentifier: &bundleID, Category: contracts.CategoryTools, Screenshots: []string{}, DownloadOptions: []contracts.AppDownloadOption{}, Versions: []contracts.AppVersionBuild{}}}
 
@@ -54,6 +63,7 @@ func TestEnrichAppsQueuesLookupWhenUncached(t *testing.T) {
 
 func TestQueueLookupDedupes(t *testing.T) {
 	client := newTestClient(t)
+	pauseWorker(client)
 	client.QueueLookup("com.example.dup", "us")
 	client.mu.Lock()
 	firstLen := len(client.queue)

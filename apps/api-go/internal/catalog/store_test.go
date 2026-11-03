@@ -3,7 +3,9 @@ package catalog
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -375,4 +377,56 @@ func mustMarshal(t *testing.T, app contracts.AppDto) string {
 		t.Fatalf("marshal: %v", err)
 	}
 	return string(b)
+}
+
+func TestActiveAppsCacheConcurrentSyncsAndReads(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.SyncSourceCatalog("seed", []contracts.AppDto{makeApp("seed:com.example.seed", "com.example.seed", "Seed", nil)}, 0); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if got := len(s.ListAllActiveApps("")); got != 1 {
+		t.Fatalf("expected 1 active app, got %d", got)
+	}
+
+	const sources = 6
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	for r := 0; r < 4; r++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					if len(s.ListAllActiveApps("")) == 0 {
+						t.Error("readers must never see an empty cache once it is loaded")
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	var syncs sync.WaitGroup
+	for i := 0; i < sources; i++ {
+		syncs.Add(1)
+		go func(i int) {
+			defer syncs.Done()
+			id := fmt.Sprintf("com.example.app%d", i)
+			src := fmt.Sprintf("src-%d", i)
+			if err := s.SyncSourceCatalog(src, []contracts.AppDto{makeApp(src+":"+id, id, "App", nil)}, int64(i+1)); err != nil {
+				t.Errorf("sync %d: %v", i, err)
+			}
+		}(i)
+	}
+	syncs.Wait()
+	close(stop)
+	wg.Wait()
+
+	// Every sync has returned, so the cache must reflect all of them.
+	if got := len(s.ListAllActiveApps("")); got != sources+1 {
+		t.Fatalf("expected %d active apps after all syncs, got %d", sources+1, got)
+	}
 }
