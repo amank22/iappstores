@@ -102,19 +102,20 @@ endpoints:
       - "[RESPONSE_TIME] < 5000"
       - "[CERTIFICATE_EXPIRATION] > 168h"
 
-  # --- Alert test: off unless GATUS_ALERT_TEST=true on the Coolify app ---------
-  # Turn it on and redeploy to check email delivery end to end: it always fails, so
-  # an alert email arrives about a minute later. Set it back to false afterwards.
-  - name: Alert test
-    group: test
-    enabled: ${GATUS_ALERT_TEST}
-    url: http://127.0.0.1:1/
-    interval: 30s
-    conditions:
-      - "[CONNECTED] == true"
-    alerts:
-      - type: email
-        failure-threshold: 1
-        success-threshold: 1
-        send-on-resolved: false
-        description: "test alert: email delivery works"
+# --- Testing email delivery ----------------------------------------------------
+# Gatus keeps history for every endpoint in this file (even disabled ones), so a test
+# endpoint here would sit on the public status page as a red row. To test alerts, add
+# this temporarily, redeploy the iappstores-gatus Coolify app, wait for the email
+# (about a minute), then remove it and redeploy again:
+#
+#  - name: Alert test
+#    group: test
+#    url: http://127.0.0.1:1/
+#    interval: 30s
+#    conditions:
+#      - "[CONNECTED] == true"
+#    alerts:
+#      - type: email
+#        failure-threshold: 1
+#        send-on-resolved: false
+#        description: "test alert: email delivery works"
