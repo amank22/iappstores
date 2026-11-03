@@ -66,6 +66,12 @@ func main() {
 		Addr:              addr,
 		Handler:           server.Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
+		// Bound slow or idle clients so they can't pin goroutines and sockets
+		// indefinitely. WriteTimeout leaves headroom over the download probe
+		// (HEAD+GET, a few seconds each) and cold catalog queries.
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {

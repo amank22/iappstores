@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS build
+FROM golang:1.27-alpine AS build
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY . .
 # needed) so the runtime stage can be minimal Alpine without a C toolchain/libc match.
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
 
-FROM alpine:3.20 AS runner
+FROM alpine:3.24 AS runner
 
 WORKDIR /app
 

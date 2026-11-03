@@ -22,5 +22,11 @@
     "typescript": "^5.8.3"
   },
   "trustedDependencies": ["sharp", "esbuild"],
-  "packageManager": "bun@1.4.0"
+  "packageManager": "bun@1.4.4",
+  "overrides": {
+    "postcss": "^8.5.32",
+    "source-map-js": "^1.2.2",
+    "vite": "^7.3.7",
+    "minimatch": "^11.0.4"
+  }
 }
