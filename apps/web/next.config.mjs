@@ -1,5 +1,12 @@
+import path from "node:path";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The Docker image sets NEXT_OUTPUT=standalone so the runtime stage only ships the files
+  // Next traces as needed. Local `next start` keeps the default output.
+  ...(process.env.NEXT_OUTPUT === "standalone"
+    ? { output: "standalone", outputFileTracingRoot: path.join(import.meta.dirname, "../..") }
+    : {}),
   transpilePackages: ["@iappstores/contracts"],
   poweredByHeader: false,
   async headers() {

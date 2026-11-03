@@ -16,6 +16,8 @@ Use Bun workspace commands for `apps/web`/`packages/contracts`. Use the Go toolc
 
 - `apps/api-go` is a standalone Go service; the web app is a separate Bun/Next.js service. They are deployed as two independent containers/services (e.g. two Coolify applications on the same Docker network), not bundled into one image.
 - The API defaults to port `4000`; the web app defaults to port `3000`.
+- Both runtime images are distroless (`oven/bun:*-distroless` for the web app, `gcr.io/distroless/static-debian13` for the API): no shell, package manager, curl or wget. Health checks are exec-form (`bun -e fetch(...)` and `/app/api healthcheck`), so any platform-level health check that runs a shell command inside the container (e.g. Coolify's built-in one) must stay disabled. Debug with `docker cp`/`docker logs`, not `docker exec sh`.
+- The web image uses Next's standalone output (enabled by `NEXT_OUTPUT=standalone` in the Dockerfile) and runs as the distroless `nonroot` user (65532). The API image runs as root because the existing `/data` volume is root-owned.
 - In local development, `bun run dev` builds contracts first, then runs the web app. Run `apps/api-go` separately (`cd apps/api-go && go run ./cmd/api`).
 - Next.js rewrites `/api/:path*` to `API_INTERNAL_URL`, which must point at wherever `apps/api-go` is reachable (its Docker network alias in production, `http://127.0.0.1:4000` for local dev if you're running it there).
 - Persistent cache data for `apps/api-go` defaults to `.data/iappstores.sqlite`; Docker sets `DATA_DIR=/data`. Mount a real volume in production — without one, the whole catalog is re-fetched from scratch on every restart.
