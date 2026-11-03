@@ -156,7 +156,7 @@ function AppIcon({
         className="grid h-full w-full place-items-center rounded-md text-center text-sm font-black tracking-tight text-white"
         style={fallbackStyle}
       >
-        <span className="drop-shadow">{getInitials(name)}</span>
+        <span className="drop-shadow-sm">{getInitials(name)}</span>
       </span>
     </div>
   );
@@ -267,7 +267,7 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
               <div className="-mx-1 flex gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2">
                 {screenshotUrls.map((screenshotUrl, index) => (
                   <PhotoView key={screenshotUrl} src={screenshotUrl}>
-                    <button className="shrink-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30" type="button">
+                    <button className="shrink-0 rounded-lg text-left outline-hidden focus-visible:ring-2 focus-visible:ring-ring/30" type="button">
                       {/* External App Store/repository screenshots are remote URLs, so img avoids domain config. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -307,7 +307,7 @@ export function AppDetailsContent({ app }: { app: AppDto }) {
 
 /** Opaque pills — avoid backdrop-filter here (very costly × many cards while scrolling). */
 const overlayBadgeClassName =
-  `${appBadgeClassName} border-0 bg-card/92 text-card-foreground shadow-sm ring-1 ring-foreground/12`;
+  `${appBadgeClassName} border-0 bg-card/92 text-card-foreground shadow-xs ring-1 ring-foreground/12`;
 
 const cardHeroHeightClass = "h-[13rem] sm:h-[15rem]";
 
@@ -329,7 +329,7 @@ function HeroAmbientBackground({
   );
 }
 
-/** Gradients only — backdrop-blur on scrollable lists kills scroll performance. */
+/** Gradients only — backdrop-blur-sm on scrollable lists kills scroll performance. */
 function CardHeroBottomFade() {
   return (
     <>
@@ -566,7 +566,7 @@ export const AppCard = memo(function AppCard({
             {showShareLink ? (
               <Button
                 asChild
-                className="absolute right-3 top-3 z-[4] h-9 w-9 shrink-0 rounded-full border-0 bg-card/92 px-0 shadow-sm ring-1 ring-foreground/12 sm:right-4 sm:top-4"
+                className="absolute right-3 top-3 z-[4] h-9 w-9 shrink-0 rounded-full border-0 bg-card/92 px-0 shadow-xs ring-1 ring-foreground/12 sm:right-4 sm:top-4"
                 variant="outline"
                 size="sm"
               >

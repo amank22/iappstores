@@ -19,7 +19,7 @@
     "test": "bun run --filter='@iappstores/web' test"
   },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^7.0.2"
   },
   "trustedDependencies": ["sharp", "esbuild"],
   "packageManager": "bun@1.4.4",
