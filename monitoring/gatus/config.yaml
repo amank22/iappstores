@@ -1,0 +1,82 @@
+# Gatus health monitor for iappstores (and the sibling correctmypaper.com site).
+# Runs as its own Coolify app on the same Docker network as the iappstores apps, so the
+# "internal" checks reach containers by network alias without any public exposure.
+# Docs: https://github.com/TwiN/gatus
+
+storage:
+  type: sqlite
+  path: /data/gatus.db
+
+ui:
+  title: iappstores status
+  header: iappstores status
+  description: Health of the iappstores web app, API and public site.
+
+# Defaults shared by every check below.
+x-defaults: &defaults
+  interval: 1m
+  client:
+    timeout: 10s
+  ui:
+    hide-hostname: true
+    hide-url: true
+
+endpoints:
+  # --- Internal: container to container on the Coolify network -------------------
+  - name: API health
+    group: internal
+    <<: *defaults
+    url: http://iappstores-api-go:4000/health
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].ok == true"
+      - "[RESPONSE_TIME] < 2000"
+
+  - name: API catalog
+    group: internal
+    <<: *defaults
+    interval: 5m
+    url: http://iappstores-api-go:4000/api/apps?pageSize=1
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].pagination.totalItems > 1000"
+      - "[RESPONSE_TIME] < 5000"
+
+  - name: Web health
+    group: internal
+    <<: *defaults
+    url: http://iappstores-web:3000/health
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].ok == true"
+      - "[RESPONSE_TIME] < 2000"
+
+  # --- Public: through Cloudflare and the tunnel, the path real users take ------
+  - name: iappstores.com
+    group: public
+    <<: *defaults
+    url: https://iappstores.com/
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 5000"
+      - "[CERTIFICATE_EXPIRATION] > 168h"
+
+  - name: iappstores.com API
+    group: public
+    <<: *defaults
+    interval: 5m
+    url: https://iappstores.com/api/sources
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY].sources) > 10"
+      - "[RESPONSE_TIME] < 5000"
+
+  - name: correctmypaper.com
+    group: public
+    <<: *defaults
+    url: https://correctmypaper.com/health
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].status == ok"
+      - "[RESPONSE_TIME] < 5000"
+      - "[CERTIFICATE_EXPIRATION] > 168h"
