@@ -7,6 +7,25 @@ storage:
   type: sqlite
   path: /data/gatus.db
 
+# Email alerts through Mailtrap's SMTP relay (the API token is the SMTP password, user
+# "api"), sent from correctmypaper.com, a domain already verified in Mailtrap.
+# GATUS_SMTP_PASSWORD and GATUS_ALERT_EMAIL are environment variables on the Coolify app,
+# not stored in this repo.
+alerting:
+  email:
+    from: "noreply@correctmypaper.com"
+    username: "api"
+    password: "${GATUS_SMTP_PASSWORD}"
+    host: "live.smtp.mailtrap.io"
+    port: 587
+    to: "${GATUS_ALERT_EMAIL}"
+    default-alert:
+      # Alert after 3 failed checks in a row (about 3 minutes for 1m checks), and send a
+      # "resolved" email after 2 passing checks.
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+
 ui:
   title: iappstores status
   header: iappstores status
@@ -20,6 +39,8 @@ x-defaults: &defaults
   ui:
     hide-hostname: true
     hide-url: true
+  alerts:
+    - type: email
 
 endpoints:
   # --- Internal: container to container on the Coolify network -------------------
@@ -80,3 +101,20 @@ endpoints:
       - "[BODY].status == ok"
       - "[RESPONSE_TIME] < 5000"
       - "[CERTIFICATE_EXPIRATION] > 168h"
+
+  # --- Alert test: off unless GATUS_ALERT_TEST=true on the Coolify app ---------
+  # Turn it on and redeploy to check email delivery end to end: it always fails, so
+  # an alert email arrives about a minute later. Set it back to false afterwards.
+  - name: Alert test
+    group: test
+    enabled: ${GATUS_ALERT_TEST}
+    url: http://127.0.0.1:1/
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: email
+        failure-threshold: 1
+        success-threshold: 1
+        send-on-resolved: false
+        description: "test alert: email delivery works"
