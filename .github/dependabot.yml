@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      bun-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /apps/api-go
+    schedule:
+      interval: weekly
+    groups:
+      go-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/, /apps/api-go]
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
