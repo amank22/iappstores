@@ -17,7 +17,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: docker
-    directories: [/, /apps/api-go]
+    directories: [/, /apps/api-go, /monitoring/gatus]
     schedule:
       interval: weekly
 

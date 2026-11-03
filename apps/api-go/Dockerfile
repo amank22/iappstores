@@ -2,8 +2,6 @@ FROM golang:1.27-alpine AS build
 
 WORKDIR /app
 
-RUN apk add --no-cache git
-
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -13,13 +11,16 @@ COPY . .
 # needed) so the runtime stage can be minimal Alpine without a C toolchain/libc match.
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
 
-FROM alpine:3.24 AS runner
+# Distroless static: just CA certificates, tzdata and /etc/passwd, with no shell, package
+# manager or curl, so there is far less in the image to exploit or to patch. The binary is
+# fully static (CGO_ENABLED=0), which is all this base needs.
+#
+# This runs as root on purpose: the existing /data volume in production was created by
+# root, so the :nonroot variant (uid 65532) could not write the SQLite database without a
+# one-time `chown -R 65532:65532` on that volume first.
+FROM gcr.io/distroless/static-debian13 AS runner
 
 WORKDIR /app
-
-# Minimal Alpine (not distroless) intentionally, for parity with the current shell-based
-# HEALTHCHECK tooling (`curl`) used by the root Dockerfile today.
-RUN apk add --no-cache curl ca-certificates && mkdir -p /data
 
 ENV API_PORT=4000
 ENV DATA_DIR=/data
@@ -46,7 +47,8 @@ COPY --from=build /out/api /app/api
 EXPOSE 4000
 VOLUME ["/data"]
 
+# No curl in distroless: the binary probes its own /health (see healthcheck() in main.go).
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=6 \
-  CMD curl --fail --silent --show-error "http://127.0.0.1:${API_PORT:-4000}/health" >/dev/null || exit 1
+  CMD ["/app/api", "healthcheck"]
 
 CMD ["/app/api"]
