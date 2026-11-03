@@ -13,7 +13,7 @@ function acceptsMarkdown(value: string | null): boolean {
   });
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (EXCLUDED_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return NextResponse.next();
@@ -32,5 +32,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!.*\\..*).*)"]
+  // Skip static files by extension only: app routes are bundle IDs that contain dots
+  // (/apps/com.example.app), so a blanket "no dot" rule would skip them.
+  matcher: ["/((?!_next/|.*\\.(?:png|jpe?g|gif|svg|ico|webp|avif|css|js|map|txt|xml|json|webmanifest|woff2?|ttf)$).*)"]
 };
