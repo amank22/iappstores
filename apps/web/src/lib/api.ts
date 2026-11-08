@@ -79,17 +79,36 @@ function summarizeTextBody(text: string): string {
   return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
 }
 
-async function request<T>(path: string, parser: Parser<T>, options: RequestOptions = {}): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      accept: "application/json",
-      ...(options.body === undefined ? {} : { "content-type": "application/json" })
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
-  });
+type ApiCallRecorder = (method: string, path: string, durationMs: number, status: number | "error") => void;
 
-  const text = await response.text();
+// Registered by lib/server-diagnostics.ts on the server (see instrumentation.ts); absent
+// in the browser, where nothing is recorded.
+function apiCallRecorder(): ApiCallRecorder | undefined {
+  const recorder = (globalThis as Record<symbol, unknown>)[Symbol.for("iappstores.recordApiCall")];
+  return typeof recorder === "function" ? (recorder as ApiCallRecorder) : undefined;
+}
+
+async function request<T>(path: string, parser: Parser<T>, options: RequestOptions = {}): Promise<T> {
+  const method = options.method ?? "GET";
+  const recorder = apiCallRecorder();
+  const started = performance.now();
+  let response: Response;
+  let text: string;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method,
+      headers: {
+        accept: "application/json",
+        ...(options.body === undefined ? {} : { "content-type": "application/json" })
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    });
+    text = await response.text();
+  } catch (error) {
+    recorder?.(method, path, performance.now() - started, "error");
+    throw error;
+  }
+  recorder?.(method, path, performance.now() - started, response.status);
   let json: unknown;
 
   if (text.trim().length > 0) {

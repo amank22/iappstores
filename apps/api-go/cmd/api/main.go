@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,6 +19,7 @@ import (
 	"github.com/iappstores/api-go/internal/config"
 	"github.com/iappstores/api-go/internal/contracts"
 	"github.com/iappstores/api-go/internal/dbconn"
+	"github.com/iappstores/api-go/internal/diagnostics"
 	"github.com/iappstores/api-go/internal/downloads"
 	"github.com/iappstores/api-go/internal/httpapi"
 	"github.com/iappstores/api-go/internal/repo"
@@ -66,10 +68,23 @@ func main() {
 
 	server := httpapi.NewServer(catalogStore, repoClient, appStoreClient, analyticsStore, sources.Sources)
 
+	// Request timing, a per-minute stats line and incident captures, so a slow-response
+	// alert can be explained from `docker logs` afterwards. See internal/diagnostics.
+	monitor := diagnostics.NewMonitor(diagnostics.Options{
+		SlowRequest:     config.SlowRequestThreshold(),
+		CaptureRequest:  config.DiagnosticsCaptureThreshold(),
+		CaptureInFlight: config.DiagnosticsInFlightThreshold(),
+		CaptureCooldown: config.DiagnosticsCooldown(),
+		CaptureDir:      config.DiagnosticsDir(),
+		StatsInterval:   config.StatsLogInterval(),
+	})
+	go monitor.Run(ctx)
+	startPprof(config.PprofAddr())
+
 	addr := fmt.Sprintf(":%d", config.APIPort())
 	httpServer := &http.Server{
 		Addr:              addr,
-		Handler:           server.Routes(),
+		Handler:           monitor.Middleware(server.Routes()),
 		ReadHeaderTimeout: 10 * time.Second,
 		// Bound slow or idle clients so they can't pin goroutines and sockets
 		// indefinitely. WriteTimeout leaves headroom over the download probe
@@ -94,6 +109,26 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("graceful shutdown failed: %v", err)
 	}
+}
+
+// startPprof serves net/http/pprof on its own listener when PPROF_ADDR is set. It is
+// separate from the API port so the public /api rewrite can never reach it.
+func startPprof(addr string) {
+	if addr == "" {
+		return
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	go func() {
+		log.Printf("pprof listening on %s", addr)
+		if err := http.ListenAndServe(addr, mux); err != nil {
+			log.Printf("pprof server stopped: %v", err)
+		}
+	}()
 }
 
 // healthcheck backs the Dockerfile HEALTHCHECK. The runtime image is distroless (no

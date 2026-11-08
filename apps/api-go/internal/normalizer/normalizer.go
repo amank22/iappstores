@@ -263,31 +263,21 @@ func compareIosVersions(left, right []int) int {
 	return 0
 }
 
-func matchesIosVersion(app contracts.AppDto, iosVersion string, operator contracts.IosVersionOperator) bool {
-	appMin := parseIosVersion(app.MinOSVersion)
-	requested := parseIosVersion(&iosVersion)
-	if appMin == nil || requested == nil {
-		return false
-	}
-	cmp := compareIosVersions(appMin, requested)
-	if operator == contracts.IosOpLte {
-		return cmp <= 0
-	}
-	return cmp >= 0
-}
-
 // FilterAppsByCategory ports filterAppsByCategory().
 func FilterAppsByCategory(apps []contracts.AppDto, category contracts.AppCategory) []contracts.AppDto {
 	if category == contracts.CategoryAll {
 		return apps
 	}
 	if category == contracts.CategoryRecent {
-		out := make([]contracts.AppDto, len(apps))
-		copy(out, apps)
-		sort.SliceStable(out, func(i, j int) bool {
-			return appTimestamp(out[j]) < appTimestamp(out[i])
+		timestamps := AppTimestamps(apps)
+		idx := make([]int32, len(apps))
+		for i := range idx {
+			idx[i] = int32(i)
+		}
+		sort.SliceStable(idx, func(i, j int) bool {
+			return timestamps[idx[j]] < timestamps[idx[i]]
 		})
-		return out
+		return Permute(apps, idx)
 	}
 	out := []contracts.AppDto{}
 	for _, app := range apps {
@@ -303,10 +293,11 @@ func FilterAppsByIosVersion(apps []contracts.AppDto, iosVersion *string, operato
 	if iosVersion == nil {
 		return apps
 	}
+	filter := NewIosFilter(iosVersion, operator)
 	out := []contracts.AppDto{}
-	for _, app := range apps {
-		if matchesIosVersion(app, *iosVersion, operator) {
-			out = append(out, app)
+	for i := range apps {
+		if filter.Matches(&apps[i]) {
+			out = append(out, apps[i])
 		}
 	}
 	return out
@@ -384,39 +375,15 @@ func dedupeVersions(versions []contracts.AppVersionBuild) []contracts.AppVersion
 // sortGroupedApps ports sortGroupedApps(): descending version-date, then default
 // (locale, non-base) name compare.
 func sortGroupedApps(apps []contracts.AppDto) []contracts.AppDto {
-	out := make([]contracts.AppDto, len(apps))
-	copy(out, apps)
-	sort.SliceStable(out, func(i, j int) bool {
-		dateDiff := appTimestamp(out[j]) - appTimestamp(out[i])
-		if dateDiff != 0 {
-			return dateDiff < 0
-		}
-		return DefaultCompare(out[i].Name, out[j].Name) < 0
-	})
-	return out
+	return Permute(apps, SortOrder(apps, contracts.SortRecent))
 }
 
 // SortApps ports sortApps(): base-sensitivity locale compare for name-asc/name-desc
 // (case/accent-insensitive, like localeCompare(..., {sensitivity: "base"})), tie-broken
-// by a plain (default-strength) id compare; otherwise falls back to sortGroupedApps.
+// by a plain (default-strength) id compare; otherwise falls back to sortGroupedApps
+// (newest versionDate first, then default-strength name compare). See SortOrder.
 func SortApps(apps []contracts.AppDto, sortOrder contracts.AppSort) []contracts.AppDto {
-	if sortOrder == contracts.SortNameAsc || sortOrder == contracts.SortNameDesc {
-		out := make([]contracts.AppDto, len(apps))
-		copy(out, apps)
-		sort.SliceStable(out, func(i, j int) bool {
-			a, b := out[i], out[j]
-			cmp := BaseCompare(a.Name, b.Name)
-			if cmp != 0 {
-				if sortOrder == contracts.SortNameAsc {
-					return cmp < 0
-				}
-				return cmp > 0
-			}
-			return DefaultCompare(a.ID, b.ID) < 0
-		})
-		return out
-	}
-	return sortGroupedApps(apps)
+	return Permute(apps, SortOrder(apps, sortOrder))
 }
 
 // GroupAppsByBundleId ports groupAppsByBundleId() line for line: apps sharing a bundle
@@ -626,35 +593,6 @@ func BuildCategoryFacets(counts map[contracts.AppCategory]int, total int) []cont
 
 // PaginateApps ports paginateApps().
 func PaginateApps(apps []contracts.AppDto, page, pageSize int) ([]contracts.AppDto, contracts.Pagination) {
-	totalItems := len(apps)
-	totalPages := 0
-	if totalItems > 0 {
-		totalPages = (totalItems + pageSize - 1) / pageSize
-	}
-	resolvedPage := page
-	maxPage := totalPages
-	if maxPage < 1 {
-		maxPage = 1
-	}
-	if resolvedPage > maxPage {
-		resolvedPage = maxPage
-	}
-	start := (resolvedPage - 1) * pageSize
-	end := start + pageSize
-	if start > totalItems {
-		start = totalItems
-	}
-	if end > totalItems {
-		end = totalItems
-	}
-	pagedApps := apps[start:end]
-
-	return pagedApps, contracts.Pagination{
-		Page:            resolvedPage,
-		PageSize:        pageSize,
-		TotalItems:      totalItems,
-		TotalPages:      totalPages,
-		HasNextPage:     resolvedPage < totalPages,
-		HasPreviousPage: resolvedPage > 1,
-	}
+	start, end, pagination := PageBounds(len(apps), page, pageSize)
+	return apps[start:end], pagination
 }

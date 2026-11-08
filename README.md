@@ -79,11 +79,23 @@ GOMEMLIMIT=180MiB
 GOGC=50
 ```
 
+Optional diagnostics settings (defaults shown; see "Diagnosing Slow Responses" in `AGENTS.md` for what the logs contain):
+
+```txt
+SLOW_REQUEST_MS=1000              # log requests slower than this
+DIAGNOSTICS_CAPTURE_MS=3000       # capture goroutines + CPU profile when a request is this slow...
+DIAGNOSTICS_INFLIGHT=32           # ...or this many requests run at once
+DIAGNOSTICS_COOLDOWN_MINUTES=15
+DIAGNOSTICS_DIR=/data/diagnostics
+STATS_LOG_SECONDS=60              # per-minute stats line; STATS_LOG_DISABLED=true turns it off
+PPROF_ADDR=                       # e.g. :6060 to serve net/http/pprof (internal network only)
+```
+
 `GOMEMLIMIT`/`GOGC` bound Go's garbage collector so steady-state memory stays well under typical small-VPS container limits — verified to hold a full 56-source cold refresh under ~180MB inside a 256MB container. Tune `GOMEMLIMIT` to roughly 35-40% of whatever memory limit you set on the container if that limit changes.
 
 App Store enrichment uses Apple's public lookup API by bundle ID. It serves cached metadata immediately and refreshes missing or expired entries slowly in the background to avoid rate limits. Repository text remains visible as IPA source notes because it often explains patched or unlocked builds.
 
-Unlike the original API, `apps/api-go` does **not** materialize the whole catalog into memory. Every request hydrates only the rows it needs from SQLite (with FTS5 for search and indexed columns for category/developer filtering), so there is no full-catalog object graph resident in the process at any time — this was the actual root cause of the original OOM issues, independent of runtime language.
+Unlike the original API, `apps/api-go` keeps a single copy of the catalog in memory at most: most requests hydrate only the rows they need from SQLite (with FTS5 for search and indexed columns for category/developer filtering), and unfiltered browsing reads one cached snapshot of active apps with its sort orders and category counts precomputed. The original API's OOMs came from keeping several full-catalog copies resident, independent of runtime language.
 
 Translation support (`/api/translate`, backed by an unofficial Google Translate scrape) was dropped in the Go rewrite. The frontend now links out to Google Translate directly instead of proxying through the API.
 

@@ -181,3 +181,48 @@ func CollectionCacheTTL() time.Duration {
 func AnalyticsSessionSecret() string {
 	return os.Getenv("ANALYTICS_SESSION_SECRET")
 }
+
+// SlowRequestThreshold is how long a request may take before it is logged as slow
+// (SLOW_REQUEST_MS, default 1000).
+func SlowRequestThreshold() time.Duration {
+	return time.Duration(getPositiveFloat("SLOW_REQUEST_MS", 1000) * float64(time.Millisecond))
+}
+
+// DiagnosticsCaptureThreshold is the request duration that triggers an incident capture
+// (DIAGNOSTICS_CAPTURE_MS, default 3000).
+func DiagnosticsCaptureThreshold() time.Duration {
+	return time.Duration(getPositiveFloat("DIAGNOSTICS_CAPTURE_MS", 3000) * float64(time.Millisecond))
+}
+
+// DiagnosticsInFlightThreshold is the number of concurrent requests that triggers an
+// incident capture (DIAGNOSTICS_INFLIGHT, default 32).
+func DiagnosticsInFlightThreshold() int {
+	return int(getPositiveFloat("DIAGNOSTICS_INFLIGHT", 32))
+}
+
+// DiagnosticsCooldown is the minimum time between incident captures
+// (DIAGNOSTICS_COOLDOWN_MINUTES, default 15).
+func DiagnosticsCooldown() time.Duration {
+	return time.Duration(getPositiveFloat("DIAGNOSTICS_COOLDOWN_MINUTES", 15) * float64(time.Minute))
+}
+
+// DiagnosticsDir is where incident captures (profiles, goroutine dumps) are written:
+// DIAGNOSTICS_DIR, default <DATA_DIR>/diagnostics, so they survive restarts.
+func DiagnosticsDir() string {
+	return getString("DIAGNOSTICS_DIR", filepath.Join(DataDir(), "diagnostics"))
+}
+
+// StatsLogInterval is how often the API logs a stats line (STATS_LOG_SECONDS, default
+// 60). STATS_LOG_DISABLED=true turns the line off.
+func StatsLogInterval() time.Duration {
+	if getBoolFlag("STATS_LOG_DISABLED") {
+		return 0
+	}
+	return time.Duration(getPositiveFloat("STATS_LOG_SECONDS", 60) * float64(time.Second))
+}
+
+// PprofAddr, when set (PPROF_ADDR, e.g. ":6060"), serves net/http/pprof on a separate
+// listener. Off by default; never route it publicly.
+func PprofAddr() string {
+	return strings.TrimSpace(os.Getenv("PPROF_ADDR"))
+}

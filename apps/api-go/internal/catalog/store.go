@@ -2,7 +2,7 @@
 // tracking, canonical-app rebuilding with missing/removed lifecycle rules, FTS5 search,
 // version history, and update-event archives. Reads hydrate only the rows they need from
 // SQLite, except unfiltered browse/search, which use one cached list of active apps that
-// is rebuilt in the background after each source sync (see listAllActiveAppsCached).
+// is rebuilt in the background after each source sync (see ActiveSnapshot).
 package catalog
 
 import (
@@ -35,8 +35,9 @@ type Store struct {
 	mu               sync.Mutex
 	searchIndexReady *bool
 
-	activeAppsMu    sync.RWMutex
-	activeAppsCache []contracts.AppDto
+	activeAppsMu sync.RWMutex
+	// activeApps is the cached, immutable snapshot of active apps (nil until first read).
+	activeApps *ActiveApps
 	// activeAppsSeq is the catalogSeq value the cache reflects.
 	activeAppsSeq uint64
 
@@ -925,10 +926,14 @@ func (s *Store) TotalActive() int {
 // Go instead so they can share one cache, see below). Every row's app_json is unmarshaled,
 // so for the unfiltered case (the hot path -- every /api/apps and /api/search request with
 // no sourceId ends up here) the result is cached in memory and served without touching
-// SQLite at all until the catalog actually changes; see activeAppsCache.
+// SQLite at all until the catalog actually changes; see ActiveSnapshot.
 func (s *Store) ListAllActiveApps(category string) []contracts.AppDto {
 	if category == "" {
-		return s.listAllActiveAppsCached()
+		snapshot := s.ActiveSnapshot()
+		// A shallow copy, so appending to the returned slice can't touch the snapshot.
+		out := make([]contracts.AppDto, len(snapshot.Apps))
+		copy(out, snapshot.Apps)
+		return out
 	}
 	return s.queryActiveApps(category)
 }
@@ -960,45 +965,117 @@ func (s *Store) queryActiveApps(category string) []contracts.AppDto {
 	return out
 }
 
-// listAllActiveAppsCached serves the unfiltered active-app list from activeAppsCache.
-// Only the very first call loads it in the request path; after that, SyncSourceCatalog
-// rebuilds it in the background sync goroutine (see refreshActiveAppsCache), so user
-// requests never wait on a full-catalog reload, and a read after a sync returns still
-// sees that sync's changes.
-// Every caller gets its own shallow copy of the cached slice so appending to (or, in
-// principle, mutating an element of) a returned slice can never corrupt the shared cache.
-func (s *Store) listAllActiveAppsCached() []contracts.AppDto {
-	s.activeAppsMu.RLock()
-	cached := s.activeAppsCache
-	s.activeAppsMu.RUnlock()
-
-	if cached == nil {
-		s.rebuildMu.Lock()
-		s.activeAppsMu.RLock()
-		cached = s.activeAppsCache
-		s.activeAppsMu.RUnlock()
-		if cached == nil {
-			cached = s.loadActiveAppsCache()
-		}
-		s.rebuildMu.Unlock()
-	}
-
-	out := make([]contracts.AppDto, len(cached))
-	copy(out, cached)
-	return out
+// ActiveApps is an immutable snapshot of the active catalog with the browse orders
+// precomputed, so unfiltered browse requests never sort. Treat it as read-only: it is
+// shared by every request until the next rebuild swaps in a new one.
+type ActiveApps struct {
+	Apps []contracts.AppDto
+	// orders holds, per sort, the indexes into Apps in that sort's order, exactly as
+	// normalizer.SortApps(Apps, sort) would order them.
+	orders map[contracts.AppSort][]int32
+	// categoryFacets are the whole-catalog facets for these apps.
+	categoryFacets []contracts.AppCategoryFacet
 }
 
-// refreshActiveAppsCache rebuilds the cached active-app list after the sync numbered seq
-// has committed. It runs in the caller's (background refresh) goroutine and swaps the new
-// list in when done; readers keep using the previous list meanwhile. It is a no-op while
-// nothing has loaded the cache yet (the first read loads it) and when a rebuild that
-// started after this sync committed has already covered it, so concurrent syncs coalesce.
+// CategoryFacets returns the facets for the whole active catalog. They are counted once
+// per snapshot: the SQL GROUP BY that used to run on every browse request can't be
+// answered from an index, so it read every active row (app_json included) each time.
+func (a *ActiveApps) CategoryFacets() []contracts.AppCategoryFacet {
+	return append([]contracts.AppCategoryFacet(nil), a.categoryFacets...)
+}
+
+// Order returns the indexes into Apps in the given sort's order (falling back to the
+// default "recent" order for an unknown sort, like normalizer.SortApps).
+func (a *ActiveApps) Order(sortOrder contracts.AppSort) []int32 {
+	if order, ok := a.orders[sortOrder]; ok {
+		return order
+	}
+	return a.orders[contracts.SortRecent]
+}
+
+// Browse returns one page of the active apps matching category and iOS version, in the
+// given sort's order, with the same results and pagination as
+// FilterAppsByCategory -> FilterAppsByIosVersion -> SortApps -> PaginateApps on Apps.
+// "all" and "recent" don't filter anything out: "recent" only pre-sorts by date, which
+// the final sort makes redundant, since equal-date apps keep their relative order.
+// The returned apps are copies.
+func (a *ActiveApps) Browse(category contracts.AppCategory, ios *normalizer.IosFilter, sortOrder contracts.AppSort, page, pageSize int) ([]contracts.AppDto, contracts.Pagination) {
+	filterCategory := category != contracts.CategoryAll && category != contracts.CategoryRecent
+	order := a.Order(sortOrder)
+	matches := order
+	if filterCategory || ios != nil {
+		matches = make([]int32, 0, len(order))
+		for _, k := range order {
+			app := &a.Apps[k]
+			if filterCategory && app.Category != category {
+				continue
+			}
+			if !ios.Matches(app) {
+				continue
+			}
+			matches = append(matches, k)
+		}
+	}
+	start, end, pagination := normalizer.PageBounds(len(matches), page, pageSize)
+	return normalizer.Permute(a.Apps, matches[start:end]), pagination
+}
+
+var browseSorts = []contracts.AppSort{contracts.SortRecent, contracts.SortNameAsc, contracts.SortNameDesc}
+
+func newActiveApps(apps []contracts.AppDto) *ActiveApps {
+	orders := make(map[contracts.AppSort][]int32, len(browseSorts))
+	for _, sortOrder := range browseSorts {
+		orders[sortOrder] = normalizer.SortOrder(apps, sortOrder)
+	}
+	// Catalog rows are one per canonical app, and the category column is written from
+	// app.Category, so these match the CountByCategory/TotalActive SQL counts.
+	counts := map[contracts.AppCategory]int{}
+	for i := range apps {
+		counts[apps[i].Category]++
+	}
+	return &ActiveApps{
+		Apps:           apps,
+		orders:         orders,
+		categoryFacets: normalizer.BuildCategoryFacets(counts, len(apps)),
+	}
+}
+
+// ActiveSnapshot returns the cached active-app snapshot. Only the very first call loads
+// it in the request path; after that, SyncSourceCatalog rebuilds it in the background
+// sync goroutine (see refreshActiveAppsCache), so user requests never wait on a
+// full-catalog reload or sort, and a read after a sync returns still sees that sync's
+// changes.
+func (s *Store) ActiveSnapshot() *ActiveApps {
+	s.activeAppsMu.RLock()
+	cached := s.activeApps
+	s.activeAppsMu.RUnlock()
+	if cached != nil {
+		return cached
+	}
+
+	s.rebuildMu.Lock()
+	defer s.rebuildMu.Unlock()
+	s.activeAppsMu.RLock()
+	cached = s.activeApps
+	s.activeAppsMu.RUnlock()
+	if cached == nil {
+		cached = s.loadActiveAppsCache()
+	}
+	return cached
+}
+
+// refreshActiveAppsCache rebuilds the cached active-app snapshot after the sync numbered
+// seq has committed. It runs in the caller's (background refresh) goroutine and swaps
+// the new snapshot in when done; readers keep using the previous one meanwhile. It is a
+// no-op while nothing has loaded the cache yet (the first read loads it) and when a
+// rebuild that started after this sync committed has already covered it, so concurrent
+// syncs coalesce.
 func (s *Store) refreshActiveAppsCache(seq uint64) {
 	s.rebuildMu.Lock()
 	defer s.rebuildMu.Unlock()
 
 	s.activeAppsMu.RLock()
-	loaded, builtSeq := s.activeAppsCache != nil, s.activeAppsSeq
+	loaded, builtSeq := s.activeApps != nil, s.activeAppsSeq
 	s.activeAppsMu.RUnlock()
 	if !loaded || builtSeq >= seq {
 		return
@@ -1006,18 +1083,22 @@ func (s *Store) refreshActiveAppsCache(seq uint64) {
 	s.loadActiveAppsCache()
 }
 
-// loadActiveAppsCache reads the active apps from SQLite and installs them as the cache.
-// Callers must hold rebuildMu.
-func (s *Store) loadActiveAppsCache() []contracts.AppDto {
+// loadActiveAppsCache reads the active apps from SQLite, precomputes their browse
+// orders and installs the result as the cache. Callers must hold rebuildMu.
+func (s *Store) loadActiveAppsCache() *ActiveApps {
 	// Every sync with a sequence number <= seq committed before this query starts, so
 	// the result reflects at least that state of the catalog.
 	seq := s.catalogSeq.Load()
-	apps := s.queryActiveApps("")
+	started := time.Now()
+	snapshot := newActiveApps(s.queryActiveApps(""))
+	if took := time.Since(started); took > time.Second {
+		log.Printf("Rebuilt active-app cache (%d apps) in %s", len(snapshot.Apps), took.Round(time.Millisecond))
+	}
 	s.activeAppsMu.Lock()
-	s.activeAppsCache = apps
+	s.activeApps = snapshot
 	s.activeAppsSeq = seq
 	s.activeAppsMu.Unlock()
-	return apps
+	return snapshot
 }
 
 // ListByCanonicalIDs hydrates a specific set of canonical ids (used for search-index

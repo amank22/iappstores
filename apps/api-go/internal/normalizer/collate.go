@@ -19,22 +19,43 @@ import (
 //     sensitivity: case- and accent-sensitive, but still locale-tailored ordering) --
 //     used for every other localeCompare call site (grouped-app tie-break, download
 //     option/source-name ordering, id tie-break).
+//
+// A *collate.Collator keeps scratch buffers and is not safe for concurrent use. A single
+// shared collator behind a mutex made every sort on every request queue on one lock, so
+// each goroutine borrows its own collator from a pool instead.
 var (
-	baseCollator    = collate.New(language.Und, collate.IgnoreCase, collate.IgnoreDiacritics, collate.IgnoreWidth)
-	defaultCollator = collate.New(language.Und)
-	collatorMu      sync.Mutex
+	baseCollators = sync.Pool{New: func() any {
+		return collate.New(language.Und, collate.IgnoreCase, collate.IgnoreDiacritics, collate.IgnoreWidth)
+	}}
+	defaultCollators = sync.Pool{New: func() any { return collate.New(language.Und) }}
 )
 
 func BaseCompare(a, b string) int {
-	collatorMu.Lock()
-	defer collatorMu.Unlock()
-	return baseCollator.CompareString(a, b)
+	c := baseCollators.Get().(*collate.Collator)
+	defer baseCollators.Put(c)
+	return c.CompareString(a, b)
 }
 
 func DefaultCompare(a, b string) int {
-	collatorMu.Lock()
-	defer collatorMu.Unlock()
-	return defaultCollator.CompareString(a, b)
+	c := defaultCollators.Get().(*collate.Collator)
+	defer defaultCollators.Put(c)
+	return c.CompareString(a, b)
+}
+
+// collationKeys returns one sort key per string such that bytes.Compare on two keys
+// orders them exactly as Compare on the strings would. Sorting by precomputed keys
+// avoids running the collation algorithm O(n log n) times.
+func collationKeys(pool *sync.Pool, values []string) [][]byte {
+	c := pool.Get().(*collate.Collator)
+	defer pool.Put(c)
+	var buf collate.Buffer
+	keys := make([][]byte, len(values))
+	for i, v := range values {
+		k := c.KeyFromString(&buf, v)
+		keys[i] = append([]byte(nil), k...)
+		buf.Reset()
+	}
+	return keys
 }
 
 func regexpMustCompileIosVersion() *regexp.Regexp {
