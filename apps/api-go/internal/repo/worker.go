@@ -91,6 +91,10 @@ func (c *Client) RefreshDueSources(ctx context.Context, allSources []sources.Sou
 	}
 
 	log.Printf("Refreshing %d source cache entries...", len(due))
+	started := time.Now()
+	defer func() {
+		log.Printf("Finished refreshing %d source cache entries in %s", len(due), time.Since(started).Round(time.Second))
+	}()
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(opts.Concurrency)
