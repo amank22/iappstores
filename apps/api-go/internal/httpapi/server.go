@@ -157,14 +157,19 @@ func sessionHash(sessionID *string) *string {
 	return &h
 }
 
-// allActiveApps loads the current active catalog as a fresh slice for this single
-// request only -- unlike catalogMaterializer.ts, nothing here is retained across
-// requests: it's built, used to answer one page/facet/search computation via the same
-// ported normalizer logic as before, and then dropped for GC. Catalog rows already store
-// one entry per bundle-deduped canonical app (see catalog.Store.rebuildCanonical), so this
-// slice is already in "grouped" form and doesn't need groupAppsByBundleId re-applied.
+// allActiveApps returns the current active catalog (a shallow copy of the cached
+// snapshot). Catalog rows already store one entry per bundle-deduped canonical app (see
+// catalog.Store.rebuildCanonical), so this slice is already in "grouped" form and
+// doesn't need groupAppsByBundleId re-applied.
 func (s *Server) allActiveApps() []contracts.AppDto {
 	return s.Catalog.ListAllActiveApps("")
+}
+
+// browseActiveApps pages through the whole active catalog using the snapshot's
+// precomputed sort orders: no per-request sort, and only the page's apps are copied.
+func (s *Server) browseActiveApps(category contracts.AppCategory, iosVersion *string, operator contracts.IosVersionOperator, sortOrder contracts.AppSort, page, pageSize int) ([]contracts.AppDto, contracts.Pagination) {
+	snapshot := s.Catalog.ActiveSnapshot()
+	return snapshot.Browse(category, normalizer.NewIosFilter(iosVersion, operator), sortOrder, page, pageSize)
 }
 
 func (s *Server) attachAppStoreMetadata(apps []contracts.AppDto, include bool) []contracts.AppDto {
@@ -205,11 +210,7 @@ func (s *Server) handleApps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allApps := s.allActiveApps()
-	categorized := normalizer.FilterAppsByCategory(allApps, q.Category)
-	filtered := normalizer.FilterAppsByIosVersion(categorized, q.IosVersion, q.IosVersionOperator)
-	sorted := normalizer.SortApps(filtered, q.Sort)
-	paged, pagination := normalizer.PaginateApps(sorted, q.Page, q.PageSize)
+	paged, pagination := s.browseActiveApps(q.Category, q.IosVersion, q.IosVersionOperator, q.Sort, q.Page, q.PageSize)
 	writeJSON(w, 200, contracts.AppListResponse{
 		Apps:       s.attachAppStoreMetadata(paged, q.IncludeAppStore),
 		Pagination: pagination,
@@ -217,14 +218,12 @@ func (s *Server) handleApps(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// wholeCatalogCategoryFacets computes category facets for the full unfiltered active
-// catalog via the indexed SQL GROUP BY (catalog.Store.CountByCategory/TotalActive) instead
-// of an in-memory pass over allActiveApps() -- the two are only equivalent for this exact
-// "no source, no search query" case, since catalog_apps rows are already one-per-canonical-
-// app (no grouping ambiguity) and category is an indexed column. Any filtered set (a single
-// source's raw apps, or search results) still needs normalizer.GetCategoryFacets.
+// wholeCatalogCategoryFacets returns the category facets for the full unfiltered
+// active catalog, counted once per cached snapshot (see catalog.ActiveApps). Any
+// filtered set (a single source's raw apps, or search results) still needs
+// normalizer.GetCategoryFacets.
 func (s *Server) wholeCatalogCategoryFacets() []contracts.AppCategoryFacet {
-	return normalizer.BuildCategoryFacets(s.Catalog.CountByCategory(), s.Catalog.TotalActive())
+	return s.Catalog.ActiveSnapshot().CategoryFacets()
 }
 
 func (s *Server) handleAppByID(w http.ResponseWriter, r *http.Request) {
@@ -341,11 +340,21 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	emptyQuery := strings.TrimSpace(q.Q) == ""
+	// An empty query is the whole active catalog unfiltered: browse it like /api/apps,
+	// and its facets are just the whole-catalog facets.
+	if strings.TrimSpace(q.Q) == "" {
+		paged, pagination := s.browseActiveApps(q.Category, q.IosVersion, q.IosVersionOperator, q.Sort, q.Page, q.PageSize)
+		writeJSON(w, 200, contracts.SearchResponse{
+			Query:      q,
+			Apps:       s.attachAppStoreMetadata(paged, q.IncludeAppStore),
+			Pagination: pagination,
+			Categories: s.wholeCatalogCategoryFacets(),
+		})
+		return
+	}
+
 	var matched []contracts.AppDto
-	if emptyQuery {
-		matched = s.allActiveApps()
-	} else if s.Catalog.IsSearchIndexAvailable() {
+	if s.Catalog.IsSearchIndexAvailable() {
 		ids := s.Catalog.SearchCatalogIds(q.Q, catalogSearchCandidateCap)
 		matched = s.Catalog.ListByCanonicalIDs(ids)
 	} else {
@@ -357,19 +366,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	sorted := normalizer.SortApps(filtered, q.Sort)
 	paged, pagination := normalizer.PaginateApps(sorted, q.Page, q.PageSize)
 
-	// An empty query returns the whole active catalog unfiltered, so its facets are just
-	// the whole-catalog facets -- reuse the indexed SQL path instead of an in-memory pass.
-	var categories []contracts.AppCategoryFacet
-	if emptyQuery {
-		categories = s.wholeCatalogCategoryFacets()
-	} else {
-		categories = normalizer.GetCategoryFacets(matched)
-	}
 	writeJSON(w, 200, contracts.SearchResponse{
 		Query:      q,
 		Apps:       s.attachAppStoreMetadata(paged, q.IncludeAppStore),
 		Pagination: pagination,
-		Categories: categories,
+		Categories: normalizer.GetCategoryFacets(matched),
 	})
 }
 
