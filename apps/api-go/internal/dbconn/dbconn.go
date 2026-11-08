@@ -27,8 +27,15 @@ func Open(path string) (*sql.DB, error) {
 
 	// Per-connection pragmas go in the DSN so every pooled connection gets them; a plain
 	// db.Exec("PRAGMA ...") only reaches whichever single connection runs it.
+	//
+	// _txlock=immediate makes db.Begin() take the write lock up front (BEGIN IMMEDIATE),
+	// waiting up to busy_timeout for it. Every transaction in this codebase writes. With
+	// the default BEGIN DEFERRED, a transaction starts as a reader and upgrades at its
+	// first write; if another writer committed in between, SQLite fails the upgrade with
+	// SQLITE_BUSY at once instead of waiting, which is where the "database is locked"
+	// errors from concurrent source syncs and download analytics came from.
 	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"+
-		"&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)", path)
+		"&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)&_txlock=immediate", path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
