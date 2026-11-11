@@ -43,6 +43,8 @@ type Server struct {
 
 	collectionMu    sync.Mutex
 	collectionCache map[contracts.CollectionSlug]collectionCacheEntry
+
+	recommendations recommendationIndexCache
 }
 
 type collectionCacheEntry struct {
