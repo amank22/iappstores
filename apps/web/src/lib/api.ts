@@ -53,7 +53,16 @@ type Parser<T> = {
 type RequestOptions = {
   method?: "GET" | "POST";
   body?: unknown;
+  /** Server-side only: abort after this long (default SERVER_REQUEST_TIMEOUT_MS). */
+  timeoutMs?: number;
 };
+
+// Server-rendered pages await these calls, so a stuck API call would hold the page (and
+// the visitor or crawler) for as long as the API takes. Cap every server-side call; the
+// browser keeps its own behavior.
+const SERVER_REQUEST_TIMEOUT_MS = 30_000;
+// Recommendations are optional on app pages (they render without them), so give up early.
+const RECOMMENDATIONS_TIMEOUT_MS = 3_000;
 
 function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
@@ -95,8 +104,10 @@ async function request<T>(path: string, parser: Parser<T>, options: RequestOptio
   let response: Response;
   let text: string;
   try {
+    const timeoutMs = typeof window === "undefined" ? (options.timeoutMs ?? SERVER_REQUEST_TIMEOUT_MS) : undefined;
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
+      signal: timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs),
       headers: {
         accept: "application/json",
         ...(options.body === undefined ? {} : { "content-type": "application/json" })
@@ -214,7 +225,9 @@ export async function fetchAppVersion(appId: string, version: string): Promise<V
 }
 
 export async function fetchRecommendations(appId: string): Promise<RecommendationsResponse> {
-  return request(`/api/apps/${encodeURIComponent(appId)}/recommendations`, RecommendationsResponseSchema);
+  return request(`/api/apps/${encodeURIComponent(appId)}/recommendations`, RecommendationsResponseSchema, {
+    timeoutMs: RECOMMENDATIONS_TIMEOUT_MS
+  });
 }
 
 export async function fetchCollection(slug: CollectionSlug): Promise<CollectionResponse> {
