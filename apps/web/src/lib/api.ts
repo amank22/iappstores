@@ -73,6 +73,31 @@ const SPONSORS_TIMEOUT_MS = 2_000;
 // Recommendations are optional on app pages (they render without them), so give up early.
 const RECOMMENDATIONS_TIMEOUT_MS = 3_000;
 
+/** An API answer that was not 2xx. Pages use `status` to tell "no such thing" (404) from a failing API. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export function isApiNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
+}
+
+/**
+ * Next hands some dynamic segments over still percent-encoded (an id like "source:app"
+ * arrives as "source%3Aapp"). Decode once so it is not encoded a second time on the way
+ * to the API, which made every such page a 404.
+ */
+export function decodeRouteParam(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
     return process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -140,12 +165,12 @@ async function request<T>(path: string, parser: Parser<T>, options: RequestOptio
       const message = response.ok
         ? "The API returned an invalid JSON response."
         : `Request failed with ${response.status} ${response.statusText || "error"}${summary ? `: ${summary}` : ""}`;
-      throw new Error(message);
+      throw response.ok ? new Error(message) : new ApiError(message, response.status);
     }
   }
 
   if (!response.ok) {
-    throw new Error(parseErrorMessage(json, `Request failed with ${response.status} ${response.statusText || "error"}`));
+    throw new ApiError(parseErrorMessage(json, `Request failed with ${response.status} ${response.statusText || "error"}`), response.status);
   }
 
   return parser.parse(json);

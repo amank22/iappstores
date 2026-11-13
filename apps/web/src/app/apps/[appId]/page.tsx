@@ -6,7 +6,7 @@ import { AppDetailAnalytics } from "@/components/app-detail-analytics";
 import { AppCard, AppDetailsContent } from "@/components/app-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchApp, fetchRecommendations } from "@/lib/api";
+import { decodeRouteParam, fetchApp, fetchRecommendations, isApiNotFound } from "@/lib/api";
 import { formatDate } from "@/lib/freshness";
 import { getAbsoluteUrl } from "@/lib/site";
 import {
@@ -30,13 +30,16 @@ async function getAppOrNotFound(appId: string): Promise<AppDto> {
   try {
     const response = await fetchApp(appId);
     return response.app;
-  } catch {
-    notFound();
+  } catch (error) {
+    // Only a real 404 is "not found". A timeout or 5xx must stay an error so crawlers retry
+    // later instead of dropping a page that exists.
+    if (isApiNotFound(error)) notFound();
+    throw error;
   }
 }
 
 export async function generateMetadata({ params }: AppPageProps): Promise<Metadata> {
-  const { appId } = await params;
+  const appId = decodeRouteParam((await params).appId);
   const app = await getAppOrNotFound(appId);
   const name = getAppDisplayName(app);
   const description = getAppDescription(app);
@@ -74,7 +77,7 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
 }
 
 export default async function AppPage({ params }: AppPageProps) {
-  const { appId } = await params;
+  const appId = decodeRouteParam((await params).appId);
   const app = await getAppOrNotFound(appId);
   const canonicalShareId = getShareId(app);
   if (appId.toLowerCase() !== canonicalShareId.toLowerCase()) permanentRedirect(`/apps/${encodeURIComponent(canonicalShareId)}`);

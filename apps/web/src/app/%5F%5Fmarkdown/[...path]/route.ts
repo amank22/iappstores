@@ -1,4 +1,4 @@
-import { fetchApp } from "@/lib/api";
+import { decodeRouteParam, fetchApp } from "@/lib/api";
 import { appMarkdown, unavailableMarkdown } from "@/lib/markdown";
 
 type MarkdownRouteProps = {
@@ -19,7 +19,7 @@ export async function GET(_request: Request, { params }: MarkdownRouteProps) {
   const { path } = await params;
   if (path.length === 2 && path[0] === "apps") {
     try {
-      return markdownResponse(appMarkdown((await fetchApp(path[1]!)).app));
+      return markdownResponse(appMarkdown((await fetchApp(decodeRouteParam(path[1]!))).app));
     } catch {
       return markdownResponse("# App not found\n\nThe requested app listing is unavailable.", 404);
     }
