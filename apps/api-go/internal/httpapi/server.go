@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/iappstores/api-go/internal/appstore"
@@ -22,6 +23,7 @@ import (
 	"github.com/iappstores/api-go/internal/repo"
 	"github.com/iappstores/api-go/internal/sources"
 	"github.com/iappstores/api-go/internal/sponsors"
+	"golang.org/x/sync/singleflight"
 )
 
 // catalogSearchCandidateCap bounds how many FTS5 matches SearchCatalogIds retrieves before
@@ -46,8 +48,16 @@ type Server struct {
 	Sponsors *sponsors.Store
 	Dodo     *sponsors.Dodo
 
-	collectionMu    sync.Mutex
-	collectionCache map[contracts.CollectionSlug]collectionCacheEntry
+	collectionMu     sync.Mutex
+	collectionCache  map[contracts.CollectionSlug]collectionCacheEntry
+	collectionFlight singleflight.Group
+	// collectionBuilds counts completed-or-started collection builds (tests read it).
+	collectionBuilds atomic.Int64
+
+	// Download counts shared by every collection build (see downloadCounts).
+	countsMu     sync.Mutex
+	lifetimeSeen countsEntry
+	weeklySeen   countsEntry
 
 	recommendations recommendationIndexCache
 }

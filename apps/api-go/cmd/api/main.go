@@ -75,6 +75,7 @@ func main() {
 		server.Dodo = sponsors.NewDodo(key, config.DodoLiveMode())
 	}
 	go server.RunSponsorSweeper(ctx)
+	go server.RunCollectionWarmer(ctx)
 
 	// Request timing, a per-minute stats line and incident captures, so a slow-response
 	// alert can be explained from `docker logs` afterwards. See internal/diagnostics.

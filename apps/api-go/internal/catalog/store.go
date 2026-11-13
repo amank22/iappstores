@@ -41,6 +41,13 @@ type Store struct {
 	// activeAppsSeq is the catalogSeq value the cache reflects.
 	activeAppsSeq uint64
 
+	// updateTotals caches the match count of ReadUpdateEventsPage per query. A count
+	// scans ~20,000 events joined to their apps (tens of ms) and only changes when a
+	// source sync commits, so it is kept until catalogSeq moves on.
+	updateTotalsMu  sync.Mutex
+	updateTotalsSeq uint64
+	updateTotals    map[string]int
+
 	// catalogSeq is bumped after every committed source sync. rebuildMu serializes
 	// cache (re)builds so at most one extra copy of the catalog is in memory at a time.
 	catalogSeq atomic.Uint64
@@ -754,6 +761,43 @@ func (s *Store) ReadAppVersions(requestedID string) []contracts.AppVersion {
 	return out
 }
 
+// countUpdateEvents counts the events matching where, at most maxEvents, reusing a
+// count made since the last committed sync.
+func (s *Store) countUpdateEvents(where string, args []interface{}, maxEvents int) (int, bool) {
+	key := fmt.Sprintf("%s|%v|%d", where, args, maxEvents)
+	seq := s.catalogSeq.Load()
+
+	s.updateTotalsMu.Lock()
+	if s.updateTotalsSeq != seq || s.updateTotals == nil {
+		s.updateTotalsSeq, s.updateTotals = seq, map[string]int{}
+	}
+	if total, ok := s.updateTotals[key]; ok {
+		s.updateTotalsMu.Unlock()
+		return total, true
+	}
+	s.updateTotalsMu.Unlock()
+
+	var total int
+	countArgs := append(append([]interface{}{}, args...), maxEvents)
+	if err := s.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM (
+			SELECT 1 FROM catalog_events e JOIN catalog_apps a ON a.canonical_id = e.canonical_id
+			WHERE %s ORDER BY e.occurred_at DESC LIMIT ?)`, where), countArgs...).Scan(&total); err != nil {
+		return 0, false
+	}
+
+	s.updateTotalsMu.Lock()
+	// Don't store a count made before a sync that finished meanwhile. Crawlers can ask
+	// for arbitrary time windows, so the map is bounded.
+	if s.updateTotalsSeq == seq && s.catalogSeq.Load() == seq {
+		if len(s.updateTotals) >= 512 {
+			s.updateTotals = map[string]int{}
+		}
+		s.updateTotals[key] = total
+	}
+	s.updateTotalsMu.Unlock()
+	return total, true
+}
+
 // ReadUpdateEventsPage mirrors readUpdateEvents(): only events for still-"active" canonical
 // apps, newest first, optionally bounded by time and type. It returns the requested page
 // and the total number of matching events, capped at maxEvents.
@@ -780,11 +824,8 @@ func (s *Store) ReadUpdateEventsPage(from, to *int64, eventType string, page, pa
 	}
 	where := strings.Join(clauses, " AND ")
 
-	var total int
-	countArgs := append(append([]interface{}{}, args...), maxEvents)
-	if err := s.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM (
-			SELECT 1 FROM catalog_events e JOIN catalog_apps a ON a.canonical_id = e.canonical_id
-			WHERE %s ORDER BY e.occurred_at DESC LIMIT ?)`, where), countArgs...).Scan(&total); err != nil {
+	total, ok := s.countUpdateEvents(where, args, maxEvents)
+	if !ok {
 		return []contracts.UpdateEvent{}, 0
 	}
 
@@ -859,7 +900,10 @@ func pad2(n int) string {
 // ReadArchives mirrors readArchives(): buckets every event's occurred_at into ISO week
 // and calendar month summaries.
 func (s *Store) ReadArchives() contracts.ArchivesResponse {
-	rows, err := s.db.Query(`SELECT occurred_at FROM catalog_events ORDER BY occurred_at DESC`)
+	// Events are counted per UTC day in SQL (about a thousand rows instead of every
+	// event); a day never straddles a week or month, so folding days up gives the same
+	// weekly and monthly counts as walking each event.
+	rows, err := s.db.Query(`SELECT occurred_at / 86400000 AS day, COUNT(*) FROM catalog_events GROUP BY day ORDER BY day DESC`)
 	if err != nil {
 		return contracts.ArchivesResponse{Weeks: []contracts.ArchiveSummary{}, Months: []contracts.ArchiveSummary{}}
 	}
@@ -871,27 +915,27 @@ func (s *Store) ReadArchives() contracts.ArchivesResponse {
 	months := map[string]*contracts.ArchiveSummary{}
 
 	for rows.Next() {
-		var occurredAt int64
-		if rows.Scan(&occurredAt) != nil {
+		var day, count int64
+		if rows.Scan(&day, &count) != nil {
 			continue
 		}
-		t := time.UnixMilli(occurredAt).UTC()
+		t := time.UnixMilli(day * 86400000).UTC()
 
 		weekKey, weekFrom, weekTo := isoWeekInfo(t)
 		if w, ok := weeks[weekKey]; ok {
-			w.EventCount++
+			w.EventCount += int(count)
 		} else {
-			weeks[weekKey] = &contracts.ArchiveSummary{Kind: "week", Key: weekKey, From: weekFrom.Format("2006-01-02T15:04:05.000Z"), To: weekTo.Format("2006-01-02T15:04:05.000Z"), EventCount: 1}
+			weeks[weekKey] = &contracts.ArchiveSummary{Kind: "week", Key: weekKey, From: weekFrom.Format("2006-01-02T15:04:05.000Z"), To: weekTo.Format("2006-01-02T15:04:05.000Z"), EventCount: int(count)}
 			weekOrder = append(weekOrder, weekKey)
 		}
 
 		monthKey := fmt.Sprintf("%d/%s", t.Year(), pad2(int(t.Month())))
 		if m, ok := months[monthKey]; ok {
-			m.EventCount++
+			m.EventCount += int(count)
 		} else {
 			monthFrom := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 			monthTo := monthFrom.AddDate(0, 1, 0)
-			months[monthKey] = &contracts.ArchiveSummary{Kind: "month", Key: monthKey, From: monthFrom.Format("2006-01-02T15:04:05.000Z"), To: monthTo.Format("2006-01-02T15:04:05.000Z"), EventCount: 1}
+			months[monthKey] = &contracts.ArchiveSummary{Kind: "month", Key: monthKey, From: monthFrom.Format("2006-01-02T15:04:05.000Z"), To: monthTo.Format("2006-01-02T15:04:05.000Z"), EventCount: int(count)}
 			monthOrder = append(monthOrder, monthKey)
 		}
 	}
