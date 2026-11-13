@@ -463,6 +463,10 @@ func parseBoundary(v *string) *int64 {
 	return nil
 }
 
+// updateEventsCap bounds how many events /api/updates pages through, so totalItems and
+// the page count stay finite on a catalog with years of history.
+const updateEventsCap = 20_000
+
 func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	page, err := queryPositiveInt(q, "page", 1, 10_000)
@@ -487,18 +491,10 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 		eventType = val
 	}
 
-	events := s.Catalog.ReadUpdateEvents(parseBoundary(from), parseBoundary(to), eventType, 20_000)
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if start > len(events) {
-		start = len(events)
-	}
-	if end > len(events) {
-		end = len(events)
-	}
+	events, total := s.Catalog.ReadUpdateEventsPage(parseBoundary(from), parseBoundary(to), eventType, page, pageSize, updateEventsCap)
 	writeJSON(w, 200, contracts.UpdatesResponse{
-		Events:     events[start:end],
-		Pagination: paginationOf(page, pageSize, len(events)),
+		Events:     events,
+		Pagination: paginationOf(page, pageSize, total),
 	})
 }
 

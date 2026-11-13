@@ -754,9 +754,16 @@ func (s *Store) ReadAppVersions(requestedID string) []contracts.AppVersion {
 	return out
 }
 
-// ReadUpdateEvents mirrors readUpdateEvents(): only events for still-"active" canonical
-// apps are returned (missing/removed apps drop out of the timeline).
-func (s *Store) ReadUpdateEvents(from, to *int64, eventType string, limit int) []contracts.UpdateEvent {
+// ReadUpdateEventsPage mirrors readUpdateEvents(): only events for still-"active" canonical
+// apps, newest first, optionally bounded by time and type. It returns the requested page
+// and the total number of matching events, capped at maxEvents.
+//
+// The page is cut in SQL. Each event carries its app's full JSON (several KB), and the
+// old version loaded and decoded up to maxEvents of them on every request just to keep
+// one page: 7-10s for /api/updates?pageSize=100 in production, whatever the page size.
+// Counting is cheap (an index scan and a primary-key lookup per event, no JSON), so only
+// the page's rows are read in full.
+func (s *Store) ReadUpdateEventsPage(from, to *int64, eventType string, page, pageSize, maxEvents int) ([]contracts.UpdateEvent, int) {
 	clauses := []string{"a.status = 'active'"}
 	args := []interface{}{}
 	if from != nil {
@@ -771,19 +778,32 @@ func (s *Store) ReadUpdateEvents(from, to *int64, eventType string, limit int) [
 		clauses = append(clauses, "e.event_type = ?")
 		args = append(args, eventType)
 	}
-	args = append(args, limit)
+	where := strings.Join(clauses, " AND ")
+
+	var total int
+	countArgs := append(append([]interface{}{}, args...), maxEvents)
+	if err := s.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM (
+			SELECT 1 FROM catalog_events e JOIN catalog_apps a ON a.canonical_id = e.canonical_id
+			WHERE %s ORDER BY e.occurred_at DESC LIMIT ?)`, where), countArgs...).Scan(&total); err != nil {
+		return []contracts.UpdateEvent{}, 0
+	}
+
+	offset := (page - 1) * pageSize
+	if offset >= total {
+		return []contracts.UpdateEvent{}, total
+	}
+	limit := min(pageSize, total-offset)
 
 	query := fmt.Sprintf(`SELECT e.id, e.event_type, e.occurred_at, e.canonical_id, e.version, e.title, e.summary, a.app_json
 		FROM catalog_events e JOIN catalog_apps a ON a.canonical_id = e.canonical_id
-		WHERE %s ORDER BY e.occurred_at DESC LIMIT ?`, strings.Join(clauses, " AND "))
-
-	rows, err := s.db.Query(query, args...)
+		WHERE %s ORDER BY e.occurred_at DESC LIMIT ? OFFSET ?`, where)
+	rows, err := s.db.Query(query, append(args, limit, offset)...)
 	if err != nil {
-		return []contracts.UpdateEvent{}
+		return []contracts.UpdateEvent{}, total
 	}
 	defer rows.Close()
 
-	out := []contracts.UpdateEvent{}
+	out := make([]contracts.UpdateEvent, 0, limit)
 	for rows.Next() {
 		var id, eventTypeVal, canonicalID, title, appJSON string
 		var occurredAt int64
@@ -810,7 +830,7 @@ func (s *Store) ReadUpdateEvents(from, to *int64, eventType string, limit int) [
 		}
 		out = append(out, ev)
 	}
-	return out
+	return out, total
 }
 
 func isoWeekInfo(t time.Time) (key string, from, to time.Time) {

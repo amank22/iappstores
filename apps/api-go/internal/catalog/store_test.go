@@ -430,3 +430,85 @@ func TestActiveAppsCacheConcurrentSyncsAndReads(t *testing.T) {
 		t.Fatalf("expected %d active apps after all syncs, got %d", sources+1, got)
 	}
 }
+
+// insertTestApps syncs count apps and gives their "new" events distinct times, an hour apart.
+func insertTestApps(t *testing.T, s *Store, count int) {
+	t.Helper()
+	apps := make([]contracts.AppDto, count)
+	for i := range apps {
+		apps[i] = makeApp(fmt.Sprintf("app-%02d", i), fmt.Sprintf("com.example.app%02d", i), fmt.Sprintf("App %02d", i), nil)
+	}
+	if err := s.SyncSourceCatalog("test-source", apps, 1000); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	// SyncSourceCatalog stamps every new app's event with the same time; spread them out so
+	// the newest-first order is well defined.
+	rows, err := s.db.Query(`SELECT id FROM catalog_events ORDER BY canonical_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		rows.Scan(&id)
+		ids = append(ids, id)
+	}
+	rows.Close()
+	for i, id := range ids {
+		if _, err := s.db.Exec(`UPDATE catalog_events SET occurred_at = ? WHERE id = ?`, int64(i+1)*3_600_000, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestReadUpdateEventsPagePagesNewestFirstAndReportsTotal(t *testing.T) {
+	s := newTestStore(t)
+	insertTestApps(t, s, 25)
+
+	first, total := s.ReadUpdateEventsPage(nil, nil, "all", 1, 10, 20_000)
+	if total != 25 || len(first) != 10 {
+		t.Fatalf("page 1: total = %d, len = %d, want 25 / 10", total, len(first))
+	}
+	if first[0].App.Name != "App 24" || first[9].App.Name != "App 15" {
+		t.Fatalf("page 1 runs %q to %q, want App 24 to App 15", first[0].App.Name, first[9].App.Name)
+	}
+	last, _ := s.ReadUpdateEventsPage(nil, nil, "all", 3, 10, 20_000)
+	if len(last) != 5 || last[4].App.Name != "App 00" {
+		t.Fatalf("last page: len = %d", len(last))
+	}
+	if beyond, total := s.ReadUpdateEventsPage(nil, nil, "all", 4, 10, 20_000); len(beyond) != 0 || total != 25 {
+		t.Fatalf("page past the end: len = %d, total = %d", len(beyond), total)
+	}
+}
+
+func TestReadUpdateEventsPageHonoursCapFiltersAndInactiveApps(t *testing.T) {
+	s := newTestStore(t)
+	insertTestApps(t, s, 25)
+
+	// The cap bounds the total and the pages, as the old fixed LIMIT did.
+	capped, total := s.ReadUpdateEventsPage(nil, nil, "all", 2, 10, 15)
+	if total != 15 || len(capped) != 5 {
+		t.Fatalf("capped page 2: total = %d, len = %d, want 15 / 5", total, len(capped))
+	}
+
+	from, to := int64(10*3_600_000), int64(13*3_600_000)
+	window, total := s.ReadUpdateEventsPage(&from, &to, "all", 1, 10, 20_000)
+	if total != 3 || len(window) != 3 {
+		t.Fatalf("time window: total = %d, len = %d, want 3 / 3", total, len(window))
+	}
+	if none, total := s.ReadUpdateEventsPage(nil, nil, "version", 1, 10, 20_000); total != 0 || len(none) != 0 {
+		t.Fatalf("version events: total = %d, want 0", total)
+	}
+
+	res, err := s.db.Exec(`UPDATE catalog_apps SET status = 'removed'
+		WHERE canonical_id = (SELECT canonical_id FROM catalog_events ORDER BY occurred_at DESC LIMIT 1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("test setup removed %d apps, want 1", n)
+	}
+	if _, total := s.ReadUpdateEventsPage(nil, nil, "all", 1, 10, 20_000); total != 24 {
+		t.Fatalf("removed app's event still counted: total = %d, want 24", total)
+	}
+}
