@@ -79,7 +79,11 @@ export function getAppDescription(app: AppDto, maxLength = 158): string {
     `${getAppDisplayName(app)} IPA download from ${app.sourceName}. View version details, compatibility information, and repository source.`;
 
   const normalized = description.replace(/\s+/g, " ").trim();
-  return normalized.length > maxLength ? `${normalized.slice(0, Math.max(0, maxLength - 3))}...` : normalized;
+  if (normalized.length <= maxLength) return normalized;
+  // Cut at a word boundary so a search snippet doesn't end mid-word.
+  const cut = normalized.slice(0, Math.max(0, maxLength - 1));
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:.\-–—]+$/, "")}…`;
 }
 
 export function getAppImage(app: AppDto): string {

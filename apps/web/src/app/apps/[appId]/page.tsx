@@ -111,7 +111,27 @@ export default async function AppPage({ params }: AppPageProps) {
       price: app.appStore?.price ?? 0,
       priceCurrency: "USD",
       availability: "https://schema.org/InStock"
-    }
+    },
+    // The App Store's own rating for this app, only when it has real votes.
+    aggregateRating:
+      app.appStore?.averageUserRating && app.appStore.userRatingCount
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: Number(app.appStore.averageUserRating.toFixed(2)),
+            ratingCount: app.appStore.userRatingCount,
+            bestRating: 5,
+            worstRating: 1
+          }
+        : undefined
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Apps", item: getAbsoluteUrl("/apps") },
+      { "@type": "ListItem", position: 2, name: CATEGORY_LABELS[app.category], item: getAbsoluteUrl(`/category/${app.category}`) },
+      { "@type": "ListItem", position: 3, name, item: getAppUrl(app) }
+    ]
   };
 
   return (
@@ -120,6 +140,11 @@ export default async function AppPage({ params }: AppPageProps) {
         type="application/ld+json"
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <AppDetailAnalytics appId={app.id} appName={name} bundleIdentifier={app.bundleIdentifier} />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
