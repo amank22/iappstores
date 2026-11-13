@@ -352,6 +352,68 @@ export const AppStatusResponseSchema = z.object({
   removedAt: z.string().nullable()
 });
 
+// --- Sponsor slots: paid homepage placements (apps/api-go/internal/sponsors) ---
+
+export const SponsorDtoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tagline: z.string(),
+  url: z.string(),
+  iconUrl: z.string().nullable()
+});
+
+export const SponsorSlotsSchema = z.object({
+  total: z.number().int(),
+  available: z.number().int()
+});
+
+export const SponsorsResponseSchema = z.object({
+  sponsors: z.array(SponsorDtoSchema),
+  slots: SponsorSlotsSchema,
+  priceUsd: z.number(),
+  /** False until Dodo Payments is configured on the API. */
+  checkoutEnabled: z.boolean()
+});
+
+/** Limits mirror parseSponsorListing in apps/api-go/internal/httpapi/sponsors.go. */
+export const SponsorCheckoutRequestSchema = z.object({
+  name: z.string().trim().min(2).max(40),
+  tagline: z.string().trim().min(10).max(90),
+  url: z.string().trim().startsWith("https://").max(300),
+  iconUrl: z.string().trim().startsWith("https://").max(500).optional(),
+  email: z.string().trim().email().max(254)
+});
+
+export const SponsorCheckoutResponseSchema = z.object({
+  checkoutUrl: z.string()
+});
+
+export const SponsorStatusSchema = z.enum([
+  "checkout",
+  "pending_review",
+  "live",
+  "queued",
+  "paused",
+  "ended",
+  "rejected"
+]);
+
+export const SponsorAdminItemSchema = SponsorDtoSchema.extend({
+  email: z.string(),
+  status: SponsorStatusSchema,
+  subscriptionId: z.string().nullable(),
+  createdAt: z.number(),
+  endsAt: z.number().nullable(),
+  clicks: z.number()
+});
+
+export const SponsorAdminResponseSchema = z.object({
+  sponsors: z.array(SponsorAdminItemSchema),
+  waitlist: z.array(z.object({ email: z.string(), createdAt: z.number() })),
+  slots: SponsorSlotsSchema,
+  warning: z.string().optional()
+});
+
 export const SourcesResponseSchema = z.object({
   sources: z.array(SourceDtoSchema)
 });
@@ -472,3 +534,11 @@ export type PopularDownloadStatsItem = z.infer<typeof PopularDownloadStatsItemSc
 export type ProblemDownloadLinkStatsItem = z.infer<typeof ProblemDownloadLinkStatsItemSchema>;
 export type DownloadStatsResponse = z.infer<typeof DownloadStatsResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
+export type SponsorDto = z.infer<typeof SponsorDtoSchema>;
+export type SponsorSlots = z.infer<typeof SponsorSlotsSchema>;
+export type SponsorsResponse = z.infer<typeof SponsorsResponseSchema>;
+export type SponsorCheckoutRequest = z.infer<typeof SponsorCheckoutRequestSchema>;
+export type SponsorCheckoutResponse = z.infer<typeof SponsorCheckoutResponseSchema>;
+export type SponsorStatus = z.infer<typeof SponsorStatusSchema>;
+export type SponsorAdminItem = z.infer<typeof SponsorAdminItemSchema>;
+export type SponsorAdminResponse = z.infer<typeof SponsorAdminResponseSchema>;

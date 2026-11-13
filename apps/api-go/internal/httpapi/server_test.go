@@ -14,6 +14,7 @@ import (
 	"github.com/iappstores/api-go/internal/downloads"
 	"github.com/iappstores/api-go/internal/repo"
 	"github.com/iappstores/api-go/internal/sources"
+	"github.com/iappstores/api-go/internal/sponsors"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -31,7 +32,9 @@ func newTestServer(t *testing.T) *Server {
 	appStoreClient := appstore.NewClient(appstore.NewCacheStore(db))
 	analytics := downloads.NewAnalyticsStore(db)
 
-	return NewServer(catalogStore, repoClient, appStoreClient, analytics, sources.Sources)
+	server := NewServer(catalogStore, repoClient, appStoreClient, analytics, sources.Sources)
+	server.Sponsors = sponsors.NewStore(db)
+	return server
 }
 
 func TestHealthEndpoint(t *testing.T) {

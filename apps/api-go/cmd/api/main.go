@@ -24,6 +24,7 @@ import (
 	"github.com/iappstores/api-go/internal/httpapi"
 	"github.com/iappstores/api-go/internal/repo"
 	"github.com/iappstores/api-go/internal/sources"
+	"github.com/iappstores/api-go/internal/sponsors"
 )
 
 func main() {
@@ -67,6 +68,13 @@ func main() {
 	repoClient.StartRefreshWorker(ctx, sources.Sources, repo.RefreshWorkerOptions{})
 
 	server := httpapi.NewServer(catalogStore, repoClient, appStoreClient, analyticsStore, sources.Sources)
+	// Paid homepage sponsor slots. Without a Dodo API key the slots are still listed,
+	// but nothing can be bought.
+	server.Sponsors = sponsors.NewStore(db)
+	if key := config.DodoAPIKey(); key != "" {
+		server.Dodo = sponsors.NewDodo(key, config.DodoLiveMode())
+	}
+	go server.RunSponsorSweeper(ctx)
 
 	// Request timing, a per-minute stats line and incident captures, so a slow-response
 	// alert can be explained from `docker logs` afterwards. See internal/diagnostics.

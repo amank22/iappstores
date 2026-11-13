@@ -47,6 +47,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
       urlEntry(getAbsoluteUrl("/developers")),
       urlEntry(getAbsoluteUrl("/guides")),
       urlEntry(getAbsoluteUrl("/correctmypaper")),
+      urlEntry(getAbsoluteUrl("/sponsor")),
       ...SEO_LANDING_PAGES.map((page) => urlEntry(getAbsoluteUrl(`/${page.slug}`))),
       ...INDEXABLE_CATEGORIES.map((category) => urlEntry(getAbsoluteUrl(`/category/${category}`))),
       urlEntry(getAbsoluteUrl("/guides/install-altstore")),

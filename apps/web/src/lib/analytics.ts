@@ -71,3 +71,11 @@ export function trackCrossPromoClick(fields: { placement: string; destination: s
     event_category: "cross_promo"
   });
 }
+
+export function trackSponsorClick(fields: { sponsorId: string; sponsorName: string }): void {
+  trackEvent("sponsor_click", {
+    sponsor_id: fields.sponsorId,
+    sponsor_name: fields.sponsorName,
+    event_category: "sponsor"
+  });
+}

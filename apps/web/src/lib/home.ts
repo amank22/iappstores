@@ -1,5 +1,7 @@
 import type { AppCategory, AppCategoryFacet, AppDto, AppSort, IosVersionOperator, Pagination, SourceDto } from "@iappstores/contracts";
 
+import type { SponsorStripData } from "@/lib/sponsors";
+
 export const ALL_SOURCES = "all";
 export const HOME_PAGE_SIZE = 12;
 export const DEFAULT_IOS_OPERATOR: IosVersionOperator = "lte";
@@ -46,6 +48,7 @@ export type HomeInitialData = {
   categories: AppCategoryFacet[];
   pagination: Pagination;
   error: string | null;
+  sponsorStrip: SponsorStripData;
 };
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;

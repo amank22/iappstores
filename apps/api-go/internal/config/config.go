@@ -226,3 +226,52 @@ func StatsLogInterval() time.Duration {
 func PprofAddr() string {
 	return strings.TrimSpace(os.Getenv("PPROF_ADDR"))
 }
+
+// --- sponsor slots (internal/sponsors) ---
+
+// SponsorSlots is how many homepage sponsor slots are on sale (SPONSOR_SLOTS, default 4).
+func SponsorSlots() int {
+	return int(getPositiveFloat("SPONSOR_SLOTS", 4))
+}
+
+// SponsorPriceUSD is the monthly price shown on the site (SPONSOR_PRICE_USD, default
+// 30). Display only: the amount charged is whatever the Dodo product is priced at.
+func SponsorPriceUSD() int {
+	return int(getPositiveFloat("SPONSOR_PRICE_USD", 30))
+}
+
+// SponsorAutoApprove publishes a paid listing without review (SPONSOR_AUTO_APPROVE=true).
+func SponsorAutoApprove() bool {
+	return getBoolFlag("SPONSOR_AUTO_APPROVE")
+}
+
+// SponsorAdminToken guards the sponsor admin endpoints (SPONSOR_ADMIN_TOKEN). Unset
+// means those endpoints do not exist.
+func SponsorAdminToken() string {
+	return strings.TrimSpace(os.Getenv("SPONSOR_ADMIN_TOKEN"))
+}
+
+func DodoAPIKey() string {
+	return strings.TrimSpace(os.Getenv("DODO_PAYMENTS_API_KEY"))
+}
+
+func DodoWebhookSecret() string {
+	return strings.TrimSpace(os.Getenv("DODO_PAYMENTS_WEBHOOK_SECRET"))
+}
+
+// DodoLiveMode selects Dodo's live API (DODO_PAYMENTS_ENVIRONMENT=live_mode). Anything
+// else uses test mode, so a half-configured deploy can't take real payments.
+func DodoLiveMode() bool {
+	return strings.TrimSpace(os.Getenv("DODO_PAYMENTS_ENVIRONMENT")) == "live_mode"
+}
+
+// DodoSponsorProductID is the Dodo subscription product a sponsor slot is sold as.
+func DodoSponsorProductID() string {
+	return strings.TrimSpace(os.Getenv("DODO_SPONSOR_PRODUCT_ID"))
+}
+
+// SiteURL is the public site origin, used for checkout return links (SITE_URL, falling
+// back to CORS_ORIGIN, which is the same origin in production).
+func SiteURL() string {
+	return strings.TrimRight(getString("SITE_URL", CORSOrigin()), "/")
+}

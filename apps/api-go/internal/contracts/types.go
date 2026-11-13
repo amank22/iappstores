@@ -418,3 +418,53 @@ func StrPtrOrNil(s string) *string {
 func Int64Ptr(v int64) *int64 {
 	return &v
 }
+
+// --- sponsor slots ---
+
+type SponsorDto struct {
+	ID      string  `json:"id"`
+	Name    string  `json:"name"`
+	Tagline string  `json:"tagline"`
+	URL     string  `json:"url"`
+	IconURL *string `json:"iconUrl"`
+}
+
+type SponsorSlots struct {
+	Total     int `json:"total"`
+	Available int `json:"available"`
+}
+
+type SponsorsResponse struct {
+	Sponsors []SponsorDto `json:"sponsors"`
+	Slots    SponsorSlots `json:"slots"`
+	PriceUSD int          `json:"priceUsd"`
+	// CheckoutEnabled is false until Dodo Payments is configured.
+	CheckoutEnabled bool `json:"checkoutEnabled"`
+}
+
+type SponsorCheckoutResponse struct {
+	CheckoutURL string `json:"checkoutUrl"`
+}
+
+type SponsorAdminItem struct {
+	SponsorDto
+	Email          string  `json:"email"`
+	Status         string  `json:"status"`
+	SubscriptionID *string `json:"subscriptionId"`
+	CreatedAt      int64   `json:"createdAt"`
+	EndsAt         *int64  `json:"endsAt"`
+	Clicks         int64   `json:"clicks"`
+}
+
+type SponsorWaitlistItem struct {
+	Email     string `json:"email"`
+	CreatedAt int64  `json:"createdAt"`
+}
+
+type SponsorAdminResponse struct {
+	Sponsors []SponsorAdminItem    `json:"sponsors"`
+	Waitlist []SponsorWaitlistItem `json:"waitlist"`
+	Slots    SponsorSlots          `json:"slots"`
+	// Warning is set when an action worked here but its follow-up in Dodo did not.
+	Warning *string `json:"warning,omitempty"`
+}
