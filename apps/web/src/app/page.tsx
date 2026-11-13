@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { AppQueryOptions } from "@/lib/api";
 import HomeClient from "@/components/home-client";
-import { fetchApps, fetchSources, searchApps } from "@/lib/api";
+import { fetchApps, fetchSources, fetchSponsors, searchApps } from "@/lib/api";
 import {
   ALL_SOURCES,
   HOME_EMPTY_CATEGORIES,
@@ -12,6 +12,7 @@ import {
   type HomeInitialData
 } from "@/lib/home";
 import { siteDescription } from "@/lib/site";
+import { EMPTY_SPONSOR_STRIP, toSponsorStripData } from "@/lib/sponsors";
 
 export const dynamic = "force-dynamic";
 
@@ -67,10 +68,14 @@ async function loadInitialHomeData(searchParams: Record<string, string | string[
     pageSize: HOME_PAGE_SIZE
   };
 
-  const [sourcesResult, appsResult] = await Promise.allSettled([
+  const [sourcesResult, appsResult, sponsorsResult] = await Promise.allSettled([
     fetchSources(),
-    urlState.query ? searchApps(urlState.query, options) : fetchApps(options)
+    urlState.query ? searchApps(urlState.query, options) : fetchApps(options),
+    fetchSponsors()
   ]);
+  // The page works without sponsors, so a failed or slow call just shows the house ad.
+  const sponsorStrip =
+    sponsorsResult.status === "fulfilled" ? toSponsorStripData(sponsorsResult.value) : EMPTY_SPONSOR_STRIP;
   const sources = sourcesResult.status === "fulfilled" ? sourcesResult.value : [];
 
   if (appsResult.status === "fulfilled") {
@@ -80,6 +85,7 @@ async function loadInitialHomeData(searchParams: Record<string, string | string[
       apps: appsResult.value.apps,
       categories: appsResult.value.categories,
       pagination: appsResult.value.pagination,
+      sponsorStrip,
       error: sourcesResult.status === "rejected" ? getErrorMessage(sourcesResult.reason) : null
     };
   }
@@ -90,6 +96,7 @@ async function loadInitialHomeData(searchParams: Record<string, string | string[
     apps: [],
     categories: HOME_EMPTY_CATEGORIES,
     pagination: HOME_EMPTY_PAGINATION,
+    sponsorStrip,
     error: getErrorMessage(appsResult.reason)
   };
 }

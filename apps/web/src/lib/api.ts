@@ -13,6 +13,12 @@ import {
   RecommendationsResponseSchema,
   CollectionResponseSchema,
   AppStatusResponseSchema,
+  SponsorsResponseSchema,
+  SponsorCheckoutResponseSchema,
+  SponsorAdminResponseSchema,
+  type SponsorsResponse,
+  type SponsorCheckoutRequest,
+  type SponsorAdminResponse,
   type AppCategory,
   type AppListResponse,
   type AppResponse,
@@ -53,6 +59,7 @@ type Parser<T> = {
 type RequestOptions = {
   method?: "GET" | "POST";
   body?: unknown;
+  headers?: Record<string, string>;
   /** Server-side only: abort after this long (default SERVER_REQUEST_TIMEOUT_MS). */
   timeoutMs?: number;
 };
@@ -61,6 +68,8 @@ type RequestOptions = {
 // the visitor or crawler) for as long as the API takes. Cap every server-side call; the
 // browser keeps its own behavior.
 const SERVER_REQUEST_TIMEOUT_MS = 30_000;
+// The home page renders fine without its sponsor strip, so never wait long for it.
+const SPONSORS_TIMEOUT_MS = 2_000;
 // Recommendations are optional on app pages (they render without them), so give up early.
 const RECOMMENDATIONS_TIMEOUT_MS = 3_000;
 
@@ -110,7 +119,8 @@ async function request<T>(path: string, parser: Parser<T>, options: RequestOptio
       signal: timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs),
       headers: {
         accept: "application/json",
-        ...(options.body === undefined ? {} : { "content-type": "application/json" })
+        ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+        ...options.headers
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body)
     });
@@ -246,4 +256,36 @@ export async function searchApps(query: string, options: AppQueryOptions = {}): 
   }
 
   return request(`/api/search?${params.toString()}`, SearchResponseSchema);
+}
+
+export async function fetchSponsors(): Promise<SponsorsResponse> {
+  return request("/api/sponsors", SponsorsResponseSchema, { timeoutMs: SPONSORS_TIMEOUT_MS });
+}
+
+/** Holds a sponsor slot and returns the Dodo Payments checkout URL to send the buyer to. */
+export async function startSponsorCheckout(listing: SponsorCheckoutRequest): Promise<string> {
+  const response = await request("/api/sponsors/checkout", SponsorCheckoutResponseSchema, {
+    method: "POST",
+    body: listing
+  });
+  return response.checkoutUrl;
+}
+
+export async function joinSponsorWaitlist(email: string): Promise<void> {
+  await request("/api/sponsors/waitlist", { parse: (data) => data }, { method: "POST", body: { email } });
+}
+
+export async function fetchSponsorAdmin(token: string): Promise<SponsorAdminResponse> {
+  return request("/api/sponsors/admin", SponsorAdminResponseSchema, { headers: { authorization: `Bearer ${token}` } });
+}
+
+export async function runSponsorAdminAction(
+  token: string,
+  sponsorId: string,
+  action: "approve" | "reject" | "end"
+): Promise<SponsorAdminResponse> {
+  return request(`/api/sponsors/admin/${encodeURIComponent(sponsorId)}/${action}`, SponsorAdminResponseSchema, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` }
+  });
 }

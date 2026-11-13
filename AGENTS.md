@@ -36,6 +36,8 @@ Useful environment variables (mostly consumed by `apps/api-go` now; `apps/web` o
 - `GOMEMLIMIT`, `GOGC` - GC tuning for `apps/api-go`; keep `GOMEMLIMIT` around 35-40% of the container's memory limit.
 - Diagnostics (all optional, see "Diagnosing Slow Responses"): `SLOW_REQUEST_MS`, `DIAGNOSTICS_CAPTURE_MS`, `DIAGNOSTICS_INFLIGHT`, `DIAGNOSTICS_COOLDOWN_MINUTES`, `DIAGNOSTICS_DIR`, `STATS_LOG_SECONDS`, `STATS_LOG_DISABLED`, `PPROF_ADDR` (API); `SLOW_API_MS`, `STATS_LOG_SECONDS`, `STATS_LOG_DISABLED` (web).
 
+- Sponsor slots (see "Sponsor Slots"): `SPONSOR_SLOTS`, `SPONSOR_PRICE_USD`, `SPONSOR_AUTO_APPROVE`, `SPONSOR_ADMIN_TOKEN`, `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_SECRET`, `DODO_PAYMENTS_ENVIRONMENT`, `DODO_SPONSOR_PRODUCT_ID`, `DODO_SPONSOR_PAGE_PRODUCT_ID`, `SPONSOR_PAGE_PRICE_USD`, and `SITE_URL` (API, for the checkout return link).
+
 Translation (`/api/translate`, `TRANSLATION_DISABLED`) no longer exists — it was dropped in the Go rewrite since its dependency (`@vitalets/google-translate-api`, an unofficial scrape) had no Go equivalent. The frontend links out to Google Translate directly instead.
 
 ## Architecture Notes
@@ -54,6 +56,20 @@ Translation (`/api/translate`, `TRANSLATION_DISABLED`) no longer exists — it w
 - The web app caps server-side API calls (`lib/api.ts`): 30s by default, 3s for recommendations, which app pages render without. A slow API call must never hold a server-rendered page indefinitely.
 - Sorting (`normalizer.SortApps`/`SortOrder`) precomputes each app's parsed date and collation key, then compares integers and bytes. Don't call `parseLenientDate`, `BaseCompare` or `DefaultCompare` inside a sort comparator; that made each 5k-app sort ~10x slower. Collators come from a `sync.Pool` (a `collate.Collator` isn't safe for concurrent use); a single collator behind a mutex serialized every concurrent request's sort.
 - The SQLite pool (`internal/dbconn`) has 8 connections. A source refresh holds several in write transactions; with 4, user reads queued behind it for seconds. Per-connection pragmas belong in the DSN, since `db.Exec("PRAGMA ...")` only reaches one pooled connection.
+
+## Sponsor Slots
+
+The home page sells a fixed number of sponsor slots (`SPONSOR_SLOTS`, default 4) as a monthly Dodo Payments subscription. `apps/api-go/internal/sponsors` owns the data (tables in `migrations/0003_sponsors.sql`) and the Dodo client; `internal/httpapi/sponsors.go` has the routes; the web side is `components/sponsor-strip.tsx`, `/sponsor` (buy or join the waitlist), `/sponsor/thanks` (Dodo's return URL), `/sponsor/admin` and `/sponsored/[slug]`.
+
+- Two plans, both taking one of the same slots: `slot` ($30/month, a home page tile) and `page` ($99/month, the tile plus a dedicated indexable page at `/sponsored/<slug>` built from the sponsor's own text). Each is its own Dodo product (`DODO_SPONSOR_PRODUCT_ID`, `DODO_SPONSOR_PAGE_PRODUCT_ID`); the page plan is on sale only when its product id is set. The page exists only while the listing is live, is listed in `sitemaps/static.xml`, and its link to the sponsor's site stays `rel="sponsored nofollow"`. Slugs are never reused, even after a listing ends.
+
+- A listing moves through `checkout` (slot held for 30 minutes while the buyer pays) -> `pending_review` -> `live`, and ends as `ended` or `rejected`. `paused` is a failed renewal: hidden, slot kept. Nothing is shown until an admin approves it, unless `SPONSOR_AUTO_APPROVE=true`.
+- Slots are counted in the same transaction that takes one, so two buyers can't get the last slot. When all are taken, checkout answers 409 and the page offers the waitlist. A payment that lands after its hold expired and the slot was sold becomes `queued` (logged as `sponsors: OVERSOLD`); it gets the next free slot, or end it and refund.
+- `POST /api/sponsors/webhook` is the only thing that marks a listing paid. It verifies the Standard Webhooks signature, ignores events for any product other than the two sponsor products (the Dodo account also sells CorrectMyPaper plans), and acts on the subscription's `status` field rather than the event name. A cancelled subscription stays live until the period already paid for ends.
+- Checkout is off (`checkoutEnabled: false`, waitlist only) until the API key, product id and webhook secret are all set. `DODO_PAYMENTS_ENVIRONMENT` must be `live_mode` to take real payments; anything else uses Dodo's test API.
+- Admin endpoints (`/api/sponsors/admin...`) need `Authorization: Bearer $SPONSOR_ADMIN_TOKEN` and answer 404 when the token is unset. Rejecting or ending a listing cancels its Dodo subscription; refunds are manual in the Dodo dashboard.
+- Tiles link through `GET /api/sponsors/{id}/go`, which counts the click and redirects. Sponsor links carry `rel="sponsored nofollow"`. The strip's order is reshuffled per page render because every slot costs the same.
+- Unsold slots show the CorrectMyPaper house ad and a "Your app here" tile (`layoutSponsorStrip` in `apps/web/src/lib/sponsors.ts`).
 
 ## Diagnosing Slow Responses
 
@@ -82,6 +98,7 @@ Routes in `apps/api-go` (see `internal/httpapi`):
 - `GET /api/sources/:sourceId/apps`
 - `GET /api/search`
 - `GET /api/sitemap/apps`
+- `GET /api/sponsors`, `POST /api/sponsors/checkout`, `POST /api/sponsors/waitlist`, `POST /api/sponsors/webhook`, `GET /api/sponsors/{id}/go`, `GET /api/sponsors/admin`, `POST /api/sponsors/admin/{id}/{approve|reject|end}`
 
 (No `POST /api/translate` — dropped, see above.)
 
@@ -94,7 +111,8 @@ Query behavior is defined in contracts:
 
 ## Frontend Notes
 
-- The home page (`apps/web/src/app/page.tsx`) is a client component. It keeps search, source, category, and iOS filters in URL query params and uses incremental loading.
+- The home page (`apps/web/src/app/page.tsx`) loads its first page on the server and hands it to `components/home-client.tsx`. It keeps search, source, category, and iOS filters in URL query params and uses incremental loading.
+- Keep the home page's first screen short: heading, search, one row of categories, the sponsor strip, then apps. Source, sort and iOS version live behind the "Filters" button in `components/app-browser.tsx` (shared with the category, repository and developer pages).
 - App detail pages live at `apps/web/src/app/apps/[appId]/page.tsx` and fetch from the API server side for metadata and Open Graph output.
 - API calls are centralized in `apps/web/src/lib/api.ts`; responses are parsed with shared zod schemas from `packages/contracts`.
 - Site URL helpers are in `apps/web/src/lib/site.ts`; keep `SITE_URL` and `NEXT_PUBLIC_SITE_URL` aligned for production metadata, sitemap, and robots output.

@@ -21,6 +21,7 @@ import (
 	"github.com/iappstores/api-go/internal/normalizer"
 	"github.com/iappstores/api-go/internal/repo"
 	"github.com/iappstores/api-go/internal/sources"
+	"github.com/iappstores/api-go/internal/sponsors"
 )
 
 // catalogSearchCandidateCap bounds how many FTS5 matches SearchCatalogIds retrieves before
@@ -40,6 +41,10 @@ type Server struct {
 	Analytics *downloads.AnalyticsStore
 	Sources   []sources.SourceDefinition
 	HTTP      *http.Client
+	// Sponsors and Dodo back the paid sponsor slots (sponsors.go). Sponsors nil turns
+	// the feature's routes off; Dodo nil leaves listing on but checkout closed.
+	Sponsors *sponsors.Store
+	Dodo     *sponsors.Dodo
 
 	collectionMu    sync.Mutex
 	collectionCache map[contracts.CollectionSlug]collectionCacheEntry
@@ -88,6 +93,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/apps", s.handleApps)
 	mux.HandleFunc("GET /api/sources/{sourceId}/apps", s.handleSourceApps)
 	mux.HandleFunc("GET /api/search", s.handleSearch)
+	s.registerSponsorRoutes(mux)
 
 	return s.withMiddleware(mux)
 }
@@ -114,7 +120,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

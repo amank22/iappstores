@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
-import type { Pagination, SourceDto } from "@iappstores/contracts";
 import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { AppBrowser } from "@/components/app-browser";
-import { CrossPromoBanner } from "@/components/cross-promo-banner";
-import { PromoAppCard } from "@/components/promo-app-card";
-import { Badge } from "@/components/ui/badge";
+import { SponsorStrip } from "@/components/sponsor-strip";
 import { Button } from "@/components/ui/button";
 import { fetchApps, searchApps, type AppQueryOptions } from "@/lib/api";
 import { HOME_PAGE_SIZE, type HomeInitialData } from "@/lib/home";
@@ -61,13 +58,11 @@ const HOME_JSON_LD = {
 } as const;
 
 export default function HomeClient({ initialData }: { initialData: HomeInitialData }) {
-  const [sources, setSources] = useState<SourceDto[]>(initialData.sources);
-  const [pagination, setPagination] = useState<Pagination>(initialData.pagination);
-
   const fetchList = useCallback((options: AppQueryOptions & { query?: string }) => {
     const { query, ...rest } = options;
     return query && query.trim().length > 0 ? searchApps(query, rest) : fetchApps(rest);
   }, []);
+  const sourceCount = initialData.sources.length;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -75,44 +70,20 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSON_LD) }}
       />
-      <div
-        role="region"
-        aria-label="Third-party software notice"
-        className="border-b border-amber-500/25 bg-amber-500/[0.07]"
-      >
-        <div className="mx-auto flex max-w-7xl gap-2 px-3 py-2 sm:px-6 lg:px-8">
-          <ShieldWarningIcon
-            className="mt-0.5 h-4 w-4 shrink-0 text-amber-400"
-            aria-hidden
-          />
-          <p className="min-w-0 text-xs leading-5 text-amber-50/85">
-            <span className="font-medium text-amber-100">Third-party sources:</span> we index repositories, but do not
-            host or verify IPA files. Check each source before installing.
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
+        <section className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Find iOS IPA apps</h1>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Search {sourceCount > 0 ? `${sourceCount} ` : ""}AltStore and SideStore repositories by app name, bundle ID,
+            or developer.
           </p>
-        </div>
-      </div>
-      <CrossPromoBanner />
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
-        <section className="overflow-hidden rounded-lg bg-card text-card-foreground ring-1 ring-foreground/10">
-          <div className="space-y-3 p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {/* Brand asset lives in public/ so it also works for Docker/Coolify deployments. */}
-                <img src="/logo.svg" alt="iappstores logo" className="h-8 w-8 rounded-lg ring-1 ring-foreground/10" />
-                <Badge variant="secondary">AltStore and SideStore repositories</Badge>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <Badge variant="outline">{sources.length} sources</Badge>
-                <Badge variant="outline">{pagination.totalItems.toLocaleString()} apps</Badge>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Find iOS IPA apps</h1>
-              <p className="max-w-3xl text-sm text-muted-foreground">
-                Search app names, bundle IDs, developers, and repositories. Compare source notes before opening an IPA download.
-              </p>
-            </div>
-          </div>
+          <p role="note" aria-label="Third-party software notice" className="flex gap-1.5 text-xs leading-5 text-muted-foreground">
+            <ShieldWarningIcon className="mt-0.5 size-4 shrink-0 text-amber-400" aria-hidden />
+            <span>
+              <span className="font-medium text-amber-100/90">Third-party sources:</span> we index repositories, but do
+              not host or verify IPA files. Check each source before installing.
+            </span>
+          </p>
         </section>
 
         <AppBrowser
@@ -122,11 +93,10 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           initialCategories={initialData.categories}
           initialSources={initialData.sources}
           syncUrl
+          initialFilters={initialData.urlState}
           pageSize={HOME_PAGE_SIZE}
           title="Apps"
-          onSourcesChange={setSources}
-          onPaginationChange={setPagination}
-          pinnedItem={<PromoAppCard />}
+          belowFilters={<SponsorStrip data={initialData.sponsorStrip} />}
         />
 
         <section className="space-y-5 rounded-lg bg-card p-4 text-card-foreground ring-1 ring-foreground/10 sm:p-6">

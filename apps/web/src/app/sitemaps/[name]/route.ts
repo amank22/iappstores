@@ -1,4 +1,5 @@
-import { fetchDevelopers, fetchSitemapApps, fetchSources } from "@/lib/api";
+import { fetchDevelopers, fetchSitemapApps, fetchSources, fetchSponsors } from "@/lib/api";
+import { getSponsorPagePath } from "@/lib/sponsors";
 import { getAbsoluteUrl } from "@/lib/site";
 import { SEO_LANDING_PAGES } from "@/lib/seo-landing-pages";
 import {
@@ -40,6 +41,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
   const { name } = await params;
 
   if (name === "static.xml") {
+    // Sponsors' dedicated pages. The sitemap must still work when sponsors can't be read.
+    const sponsorPagePaths = await fetchSponsors()
+      .then((response) => response.sponsors.map(getSponsorPagePath).filter((path) => path !== null))
+      .catch(() => []);
+
     return xmlResponse([
       urlEntry(getAbsoluteUrl("/")),
       urlEntry(getAbsoluteUrl("/apps")),
@@ -47,6 +53,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
       urlEntry(getAbsoluteUrl("/developers")),
       urlEntry(getAbsoluteUrl("/guides")),
       urlEntry(getAbsoluteUrl("/correctmypaper")),
+      urlEntry(getAbsoluteUrl("/sponsor")),
+      ...sponsorPagePaths.map((path) => urlEntry(getAbsoluteUrl(path))),
       ...SEO_LANDING_PAGES.map((page) => urlEntry(getAbsoluteUrl(`/${page.slug}`))),
       ...INDEXABLE_CATEGORIES.map((category) => urlEntry(getAbsoluteUrl(`/category/${category}`))),
       urlEntry(getAbsoluteUrl("/guides/install-altstore")),

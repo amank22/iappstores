@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type {
   AppCategory,
@@ -11,6 +11,7 @@ import type {
   Pagination,
   SourceDto
 } from "@iappstores/contracts";
+import { MagnifyingGlassIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { AppCard } from "@/components/app-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,8 @@ import {
   HOME_EMPTY_PAGINATION,
   HOME_PAGE_SIZE,
   getActiveIosVersion,
-  parseHomeUrlState
+  parseHomeUrlState,
+  type HomeUrlState
 } from "@/lib/home";
 import {
   DOWNLOADED_APPS_STORAGE_KEY,
@@ -150,13 +152,15 @@ export type AppBrowserProps = {
   showIosVersionFilter?: boolean;
   /** Only the home page (still living at `/`) should enable this. */
   syncUrl?: boolean;
+  /** With `syncUrl`: the filters the server read from the URL, used as the starting state. */
+  initialFilters?: HomeUrlState;
   pageSize?: number;
   title?: string;
   /** Optional: lets a parent mirror sources/pagination for its own display (e.g. hero badges). */
   onSourcesChange?: (sources: SourceDto[]) => void;
   onPaginationChange?: (pagination: Pagination) => void;
-  /** Optional: rendered as the first grid item, outside of `apps`/pagination state (e.g. a promo card). */
-  pinnedItem?: ReactNode;
+  /** Optional: rendered between the filters and the results (the home page's sponsor strip). */
+  belowFilters?: ReactNode;
 };
 
 export function AppBrowser({
@@ -172,17 +176,19 @@ export function AppBrowser({
   showSortFilter = true,
   showIosVersionFilter = true,
   syncUrl = false,
+  initialFilters,
   pageSize = HOME_PAGE_SIZE,
   title = "Apps",
   onSourcesChange,
   onPaginationChange,
-  pinnedItem
+  belowFilters
 }: AppBrowserProps) {
+  const moreFiltersId = useId();
   const isLocal = localApps !== undefined;
-  const initialUrlState = useMemo(
-    () => (syncUrl && typeof window !== "undefined" ? parseHomeUrlState(new URLSearchParams(window.location.search)) : null),
-    [syncUrl]
-  );
+  // The server parses the URL and passes the result down, so the first client render
+  // matches the server's HTML. Reading window.location here instead made any URL with
+  // filters fail hydration.
+  const initialUrlState = syncUrl ? (initialFilters ?? null) : null;
 
   const [sources, setSources] = useState<SourceDto[]>(initialSources);
   const [isLoadingSources, setIsLoadingSources] = useState(showSourceFilter && !isLocal && initialSources.length === 0);
@@ -206,10 +212,6 @@ export function AppBrowser({
   const hasSyncedInitialUrl = useRef(false);
   const shouldSkipInitialAppsFetch = useRef(!isLocal);
 
-  const selectedSource = useMemo(
-    () => sources.find((source) => source.id === selectedSourceId),
-    [selectedSourceId, sources]
-  );
   const trimmedIosVersion = iosVersion.trim();
   const activeIosVersion = getActiveIosVersion(trimmedIosVersion);
   const trimmedQuery = query.trim();
@@ -233,6 +235,18 @@ export function AppBrowser({
     sort !== DEFAULT_SORT ||
     trimmedIosVersion.length > 0 ||
     iosVersionOperator !== DEFAULT_IOS_OPERATOR;
+
+  // Source, sort and iOS version sit behind the "Filters" button so the search box and
+  // categories stay on one screen. The panel opens by itself whenever one of them is set
+  // (from the URL, say), so an active filter is never hidden.
+  const moreFilterCount =
+    (selectedSourceId !== ALL_SOURCES ? 1 : 0) + (sort !== DEFAULT_SORT ? 1 : 0) + (trimmedIosVersion.length > 0 ? 1 : 0);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  useEffect(() => {
+    if (moreFilterCount > 0) {
+      setShowMoreFilters(true);
+    }
+  }, [moreFilterCount]);
 
   // Local mode: filter/sort the fixed app list in memory, no network calls.
   const localFiltered = useMemo(() => {
@@ -579,126 +593,130 @@ export function AppBrowser({
   }
 
   const showFilterCard = showSearch || showCategoryFilter || showSourceFilter || showSortFilter || showIosVersionFilter;
+  const hasMoreFilters = showSourceFilter || showSortFilter || showIosVersionFilter;
 
   return (
     <div className="space-y-4">
       {showFilterCard ? (
-        <Card>
-          <CardHeader className="flex gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Filter apps</CardTitle>
-              <CardDescription className="hidden sm:block">Choose a category, source, sort, or iOS version.</CardDescription>
-            </div>
-            <Button
-              variant={hasActiveFilters ? "default" : "outline"}
-              size="sm"
-              disabled={!hasActiveFilters}
-              onClick={resetFilters}
-            >
-              Reset filters
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3 p-3 pt-0">
+        <div className="space-y-2.5">
+          <div className="flex gap-2">
             {showSearch ? (
-              <Input
-                className="h-9"
-                placeholder="Search apps, bundle IDs, developers..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            ) : null}
-
-            {showCategoryFilter ? (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {visibleCategories.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant={selectedCategory === category.id ? "default" : "outline"}
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => setSelectedCategory(category.id)}
-                  >
-                    {CATEGORY_LABELS[category.id]} {category.id !== "all" ? `(${category.appCount})` : ""}
-                  </Button>
-                ))}
+              <div className="relative min-w-0 flex-1">
+                <MagnifyingGlassIcon
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  type="search"
+                  aria-label="Search apps"
+                  className="h-10 pl-9 text-sm md:text-sm"
+                  placeholder="Search apps, bundle IDs, developers..."
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
               </div>
             ) : null}
-
-            {showSourceFilter || showSortFilter || showIosVersionFilter ? (
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_14rem_11rem]">
-                {showSourceFilter ? (
-                  <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                    <SelectTrigger className="h-8 w-full">
-                      <SelectValue placeholder={isLoadingSources ? "Loading sources..." : "All sources"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL_SOURCES}>All sources</SelectItem>
-                      {sources.map((source) => (
-                        <SelectItem key={source.id} value={source.id}>
-                          {source.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : null}
-                {showSortFilter ? (
-                  <Select value={sort} onValueChange={(value) => setSort(value as AppSort)}>
-                    <SelectTrigger className="h-8 w-full">
-                      <SelectValue placeholder="Sort results" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="recent">{SORT_LABELS.recent}</SelectItem>
-                      <SelectItem value="name-asc">{SORT_LABELS["name-asc"]}</SelectItem>
-                      <SelectItem value="name-desc">{SORT_LABELS["name-desc"]}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : null}
-                {showIosVersionFilter ? (
-                  <>
-                    <Select
-                      value={iosVersionOperator}
-                      onValueChange={(value) => setIosVersionOperator(value as IosVersionOperator)}
-                    >
-                      <SelectTrigger className="h-8 w-full">
-                        <SelectValue placeholder="Compatible with iOS" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="lte">Compatible with iOS</SelectItem>
-                        <SelectItem value="gte">Requires at least iOS</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      className="h-8"
-                      inputMode="decimal"
-                      pattern="[0-9]+(\\.[0-9]+){0,2}"
-                      placeholder="iOS, e.g. 16.0"
-                      value={iosVersion}
-                      onChange={(event) => setIosVersion(event.target.value)}
-                    />
-                  </>
-                ) : null}
-              </div>
+            {hasMoreFilters ? (
+              <Button
+                variant="outline"
+                className="h-10 shrink-0 gap-1.5 px-3"
+                aria-expanded={showMoreFilters}
+                aria-controls={moreFiltersId}
+                onClick={() => setShowMoreFilters((open) => !open)}
+              >
+                <SlidersHorizontalIcon className="size-4" aria-hidden />
+                Filters
+                {moreFilterCount > 0 ? <Badge>{moreFilterCount}</Badge> : null}
+              </Button>
             ) : null}
-
             {hasActiveFilters ? (
-              <div className="flex flex-wrap gap-2 rounded-lg bg-muted/40 p-3 ring-1 ring-foreground/10">
-                <span className="self-center text-xs font-medium text-muted-foreground">Active:</span>
-                {trimmedQuery ? <Badge variant="outline">Search: {trimmedQuery}</Badge> : null}
-                {selectedCategory !== "all" ? <Badge variant="outline">{CATEGORY_LABELS[selectedCategory]}</Badge> : null}
-                {selectedSource ? <Badge variant="outline">{selectedSource.name}</Badge> : null}
-                {sort !== DEFAULT_SORT ? <Badge variant="outline">Sort: {SORT_LABELS[sort]}</Badge> : null}
-                {trimmedIosVersion ? (
-                  <Badge variant="outline">
-                    {activeIosVersion
-                      ? `${IOS_FILTER_LABELS[iosVersionOperator]} ${activeIosVersion}`
-                      : "Enter iOS version like 16.0"}
-                  </Badge>
-                ) : null}
-              </div>
+              <Button variant="ghost" className="h-10 shrink-0 px-3" onClick={resetFilters}>
+                Reset
+              </Button>
             ) : null}
-          </CardContent>
-        </Card>
+          </div>
+
+          {hasMoreFilters && showMoreFilters ? (
+            <div id={moreFiltersId} className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_14rem_14rem_11rem]">
+              {showSourceFilter ? (
+                <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                  <SelectTrigger className="h-9 w-full" aria-label="Source">
+                    <SelectValue placeholder={isLoadingSources ? "Loading sources..." : "All sources"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_SOURCES}>All sources</SelectItem>
+                    {sources.map((source) => (
+                      <SelectItem key={source.id} value={source.id}>
+                        {source.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
+              {showSortFilter ? (
+                <Select value={sort} onValueChange={(value) => setSort(value as AppSort)}>
+                  <SelectTrigger className="h-9 w-full" aria-label="Sort">
+                    <SelectValue placeholder="Sort results" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">{SORT_LABELS.recent}</SelectItem>
+                    <SelectItem value="name-asc">{SORT_LABELS["name-asc"]}</SelectItem>
+                    <SelectItem value="name-desc">{SORT_LABELS["name-desc"]}</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
+              {showIosVersionFilter ? (
+                <>
+                  <Select
+                    value={iosVersionOperator}
+                    onValueChange={(value) => setIosVersionOperator(value as IosVersionOperator)}
+                  >
+                    <SelectTrigger className="h-9 w-full" aria-label="iOS version rule">
+                      <SelectValue placeholder="Compatible with iOS" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lte">{IOS_FILTER_LABELS.lte}</SelectItem>
+                      <SelectItem value="gte">{IOS_FILTER_LABELS.gte}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="h-9"
+                    inputMode="decimal"
+                    pattern="[0-9]+(\\.[0-9]+){0,2}"
+                    aria-label="iOS version"
+                    aria-invalid={trimmedIosVersion.length > 0 && !activeIosVersion}
+                    placeholder="iOS, e.g. 16.0"
+                    value={iosVersion}
+                    onChange={(event) => setIosVersion(event.target.value)}
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          {showCategoryFilter ? (
+            <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]" role="group" aria-label="Category">
+              {visibleCategories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  className="shrink-0 gap-1.5"
+                  aria-pressed={selectedCategory === category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                >
+                  {CATEGORY_LABELS[category.id]}
+                  {category.id !== "all" ? (
+                    <span className="text-[0.6875rem] tabular-nums opacity-60">{category.appCount.toLocaleString("en-US")}</span>
+                  ) : null}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
+
+      {belowFilters}
 
       {error ? (
         <Card className="border-destructive/50 bg-destructive/10">
@@ -710,22 +728,21 @@ export function AppBrowser({
       ) : null}
 
       <section className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-            <p className="text-sm text-muted-foreground">
-              {isInitialLoading
-                ? "Loading apps..."
-                : `${apps.length} of ${effectivePagination.totalItems} app${effectivePagination.totalItems === 1 ? "" : "s"} shown`}
-            </p>
-          </div>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+          <p className="text-sm text-muted-foreground">
+            {isInitialLoading
+              ? "Loading apps..."
+              : `${apps.length.toLocaleString("en-US")} of ${effectivePagination.totalItems.toLocaleString("en-US")} app${
+                  effectivePagination.totalItems === 1 ? "" : "s"
+                } shown`}
+          </p>
         </div>
 
         {isInitialLoading ? (
           <AppGridSkeleton />
         ) : apps.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {pinnedItem}
             {apps.map((app) => (
               <AppCard
                 key={app.id}
