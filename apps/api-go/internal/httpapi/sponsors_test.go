@@ -318,3 +318,16 @@ func TestSponsorPagePlanClosedWithoutItsProduct(t *testing.T) {
 		t.Fatalf("sponsors = %+v", got)
 	}
 }
+
+func TestDecodeEscapedID(t *testing.T) {
+	for in, want := range map[string]string{
+		"com.example.app": "com.example.app",
+		"source:app":      "source:app",
+		"source%3Aapp":    "source:app",
+		"bad%zzid":        "bad%zzid",
+	} {
+		if got := decodeEscapedID(in); got != want {
+			t.Errorf("decodeEscapedID(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

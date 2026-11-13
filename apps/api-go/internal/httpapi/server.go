@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -250,6 +251,7 @@ func (s *Server) handleAppByID(w http.ResponseWriter, r *http.Request) {
 		sendError(w, 400, "invalid_app_id", "App id is required.", nil)
 		return
 	}
+	appID = decodeEscapedID(appID)
 
 	app := s.Catalog.ReadCatalogApp(appID)
 	if app == nil {
@@ -258,6 +260,19 @@ func (s *Server) handleAppByID(w http.ResponseWriter, r *http.Request) {
 	}
 	enriched := s.AppStore.EnrichAppsWithCachedAppStoreMetadata([]contracts.AppDto{*app}, appstore.Country())
 	writeJSON(w, 200, contracts.AppResponse{App: enriched[0]})
+}
+
+// decodeEscapedID undoes a second round of percent-encoding ("source%3Aapp" for
+// "source:app"). Ids never contain a percent sign, so one that does was encoded twice by
+// a client; links already out there (and crawled) must keep working.
+func decodeEscapedID(id string) string {
+	if !strings.Contains(id, "%") {
+		return id
+	}
+	if decoded, err := url.PathUnescape(id); err == nil {
+		return decoded
+	}
+	return id
 }
 
 func (s *Server) handleSourceApps(w http.ResponseWriter, r *http.Request) {

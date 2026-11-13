@@ -5,7 +5,6 @@ import { SEO_LANDING_PAGES } from "@/lib/seo-landing-pages";
 import {
   INDEXABLE_CATEGORIES,
   getAppUrl,
-  getLastModified,
   xmlEscape
 } from "@/lib/seo";
 
@@ -13,11 +12,13 @@ export const dynamic = "force-dynamic";
 
 const APP_SITEMAP_SIZE = 10_000;
 
-function urlEntry(url: string, lastModified = new Date()): string {
+// lastmod is left out when the real change date isn't known. Stamping "now" on every
+// fetch told Google that every page changed on every crawl, so it stopped trusting the field.
+function urlEntry(url: string, lastModified?: Date): string {
   return [
     "  <url>",
     `    <loc>${xmlEscape(url)}</loc>`,
-    `    <lastmod>${lastModified.toISOString()}</lastmod>`,
+    ...(lastModified ? [`    <lastmod>${lastModified.toISOString()}</lastmod>`] : []),
     "  </url>"
   ].join("\n");
 }
@@ -94,7 +95,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
     }
 
     return xmlResponse(
-      pageApps.map((app) => urlEntry(getAppUrl(app), getLastModified(app.versionDate)))
+      pageApps.map((app) => {
+        const changed = Date.parse(app.versionDate ?? app.metadataUpdatedAt ?? "");
+        return urlEntry(getAppUrl(app), Number.isFinite(changed) ? new Date(changed) : undefined);
+      })
     );
   }
 

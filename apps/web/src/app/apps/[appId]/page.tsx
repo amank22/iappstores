@@ -6,7 +6,7 @@ import { AppDetailAnalytics } from "@/components/app-detail-analytics";
 import { AppCard, AppDetailsContent } from "@/components/app-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchApp, fetchRecommendations } from "@/lib/api";
+import { decodeRouteParam, fetchApp, fetchRecommendations, isApiNotFound } from "@/lib/api";
 import { formatDate } from "@/lib/freshness";
 import { getAbsoluteUrl } from "@/lib/site";
 import {
@@ -30,13 +30,16 @@ async function getAppOrNotFound(appId: string): Promise<AppDto> {
   try {
     const response = await fetchApp(appId);
     return response.app;
-  } catch {
-    notFound();
+  } catch (error) {
+    // Only a real 404 is "not found". A timeout or 5xx must stay an error so crawlers retry
+    // later instead of dropping a page that exists.
+    if (isApiNotFound(error)) notFound();
+    throw error;
   }
 }
 
 export async function generateMetadata({ params }: AppPageProps): Promise<Metadata> {
-  const { appId } = await params;
+  const appId = decodeRouteParam((await params).appId);
   const app = await getAppOrNotFound(appId);
   const name = getAppDisplayName(app);
   const description = getAppDescription(app);
@@ -74,7 +77,7 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
 }
 
 export default async function AppPage({ params }: AppPageProps) {
-  const { appId } = await params;
+  const appId = decodeRouteParam((await params).appId);
   const app = await getAppOrNotFound(appId);
   const canonicalShareId = getShareId(app);
   if (appId.toLowerCase() !== canonicalShareId.toLowerCase()) permanentRedirect(`/apps/${encodeURIComponent(canonicalShareId)}`);
@@ -108,7 +111,27 @@ export default async function AppPage({ params }: AppPageProps) {
       price: app.appStore?.price ?? 0,
       priceCurrency: "USD",
       availability: "https://schema.org/InStock"
-    }
+    },
+    // The App Store's own rating for this app, only when it has real votes.
+    aggregateRating:
+      app.appStore?.averageUserRating && app.appStore.userRatingCount
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: Number(app.appStore.averageUserRating.toFixed(2)),
+            ratingCount: app.appStore.userRatingCount,
+            bestRating: 5,
+            worstRating: 1
+          }
+        : undefined
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Apps", item: getAbsoluteUrl("/apps") },
+      { "@type": "ListItem", position: 2, name: CATEGORY_LABELS[app.category], item: getAbsoluteUrl(`/category/${app.category}`) },
+      { "@type": "ListItem", position: 3, name, item: getAppUrl(app) }
+    ]
   };
 
   return (
@@ -117,6 +140,11 @@ export default async function AppPage({ params }: AppPageProps) {
         type="application/ld+json"
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <AppDetailAnalytics appId={app.id} appName={name} bundleIdentifier={app.bundleIdentifier} />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-8">
