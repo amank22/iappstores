@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -134,6 +137,48 @@ func qualityScore(app contracts.AppDto, counts map[string]int, maxDemand int, no
 	return demand*0.35 + freshness(app, now)*0.25 + availability*0.2 + metadataCompleteness(app)*0.2
 }
 
+// countsTTL is how long download counts are reused across collection builds. Counting
+// scans every download event (hundreds of ms once the table has some history), so the
+// seven collections share one scan instead of each doing their own.
+const countsTTL = 5 * time.Minute
+
+type countsEntry struct {
+	counts  map[string]int
+	expires time.Time
+}
+
+// downloadCounts returns non-failing download counts per app, lifetime or for the last
+// seven days. The mutex is held while counting so concurrent builds wait for one scan
+// instead of starting their own.
+func (s *Server) downloadCounts(weekly bool, now time.Time) map[string]int {
+	s.countsMu.Lock()
+	defer s.countsMu.Unlock()
+
+	entry := &s.lifetimeSeen
+	if weekly {
+		entry = &s.weeklySeen
+	}
+	if entry.counts != nil && entry.expires.After(now) {
+		return entry.counts
+	}
+	var since *int64
+	if weekly {
+		weekAgo := now.UnixMilli() - 7*24*60*60*1000
+		since = &weekAgo
+	}
+	*entry = countsEntry{counts: s.Analytics.ReadDownloadCounts(since), expires: now.Add(countsTTL)}
+	return entry.counts
+}
+
+// ranked is an app with its sort keys, computed once. Computing them inside the sort
+// comparator re-parsed dates and rescored metadata on every comparison (~n log n times).
+type ranked struct {
+	app     contracts.AppDto
+	primary float64
+	// secondary breaks ties for the download collections (freshness).
+	secondary float64
+}
+
 func (s *Server) buildCollection(slug contracts.CollectionSlug) contracts.CollectionResponse {
 	def := collectionDefs[slug]
 	apps := s.AppStore.EnrichAppsWithCachedAppStoreMetadata(s.allActiveApps(), appstore.Country())
@@ -159,13 +204,18 @@ func (s *Server) buildCollection(slug contracts.CollectionSlug) contracts.Collec
 		apps = filtered
 	}
 
-	now := time.Now().UnixMilli()
-	lifetime := s.Analytics.ReadDownloadCounts(nil)
-	weekAgo := now - 7*24*60*60*1000
-	recent := s.Analytics.ReadDownloadCounts(&weekAgo)
-	counts := lifetime
-	if slug == contracts.CollectionTrending {
-		counts = recent
+	nowTime := time.Now()
+	now := nowTime.UnixMilli()
+
+	// Only the counts a collection actually ranks by are read: "new" ranks by first-seen
+	// time, "trending" by the last week, everything else by lifetime counts.
+	var counts map[string]int
+	switch slug {
+	case contracts.CollectionNew:
+	case contracts.CollectionTrending:
+		counts = s.downloadCounts(true, nowTime)
+	default:
+		counts = s.downloadCounts(false, nowTime)
 	}
 
 	maxDemand := 1
@@ -175,24 +225,27 @@ func (s *Server) buildCollection(slug contracts.CollectionSlug) contracts.Collec
 		}
 	}
 
-	sorted := make([]contracts.AppDto, len(apps))
-	copy(sorted, apps)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		a, b := sorted[i], sorted[j]
+	items := make([]ranked, len(apps))
+	for i, app := range apps {
+		item := ranked{app: app}
 		switch slug {
 		case contracts.CollectionNew:
-			at, _ := firstSeenTimestamp(a)
-			bt, _ := firstSeenTimestamp(b)
-			return bt < at
+			ts, _ := firstSeenTimestamp(app)
+			item.primary = float64(ts)
 		case contracts.CollectionMostDownloaded, contracts.CollectionTrending:
-			ac, bc := downloadCountFor(a, counts), downloadCountFor(b, counts)
-			if ac != bc {
-				return ac > bc
-			}
-			return freshness(b, now) < freshness(a, now)
+			item.primary = float64(downloadCountFor(app, counts))
+			item.secondary = freshness(app, now)
 		default:
-			return qualityScore(b, counts, maxDemand, now) < qualityScore(a, counts, maxDemand, now)
+			item.primary = qualityScore(app, counts, maxDemand, now)
 		}
+		items[i] = item
+	}
+	// Highest first; the stable sort keeps catalog order between equals.
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].primary != items[j].primary {
+			return items[i].primary > items[j].primary
+		}
+		return items[i].secondary > items[j].secondary
 	})
 
 	methodology := def.description
@@ -201,8 +254,12 @@ func (s *Server) buildCollection(slug contracts.CollectionSlug) contracts.Collec
 	}
 
 	limit := 60
-	if len(sorted) < limit {
-		limit = len(sorted)
+	if len(items) < limit {
+		limit = len(items)
+	}
+	top := make([]contracts.AppDto, limit)
+	for i := range top {
+		top[i] = items[i].app
 	}
 
 	return contracts.CollectionResponse{
@@ -210,7 +267,7 @@ func (s *Server) buildCollection(slug contracts.CollectionSlug) contracts.Collec
 		Title:       def.title,
 		Description: def.description,
 		Methodology: methodology,
-		Apps:        sorted[:limit],
+		Apps:        top,
 	}
 }
 
@@ -221,21 +278,77 @@ func firstSeenTimestamp(app contracts.AppDto) (int64, bool) {
 	return normalizer.ParseLenientDateOK(*app.FirstSeenAt)
 }
 
+// refreshCollection builds a collection and stores it. Builds for one slug run one at a
+// time: concurrent callers share a single build, so the moment a cache entry expires
+// can't turn into one catalog-wide rebuild per waiting request. A failed build (it
+// shouldn't happen, but this also runs in goroutines no recover middleware covers)
+// leaves the previous entry in place.
+func (s *Server) refreshCollection(slug contracts.CollectionSlug) (contracts.CollectionResponse, bool) {
+	v, _, _ := s.collectionFlight.Do(string(slug), func() (result interface{}, err error) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("collections: build of %s panicked: %v", slug, rec)
+				result, err = nil, fmt.Errorf("build panicked")
+			}
+		}()
+		s.collectionBuilds.Add(1)
+		response := s.buildCollection(slug)
+		s.collectionMu.Lock()
+		s.collectionCache[slug] = collectionCacheEntry{expiresAt: time.Now().Add(config.CollectionCacheTTL()), response: response}
+		s.collectionMu.Unlock()
+		return response, nil
+	})
+	response, ok := v.(contracts.CollectionResponse)
+	return response, ok
+}
+
+// getCachedCollection serves a collection from cache. An expired entry is still served,
+// and refreshed in the background, so only the very first request for a slug (before
+// the warmer has run) ever waits for a build.
 func (s *Server) getCachedCollection(slug contracts.CollectionSlug) contracts.CollectionResponse {
 	s.collectionMu.Lock()
-	if entry, ok := s.collectionCache[slug]; ok && entry.expiresAt.After(time.Now()) {
-		s.collectionMu.Unlock()
+	entry, ok := s.collectionCache[slug]
+	s.collectionMu.Unlock()
+
+	if ok {
+		if !entry.expiresAt.After(time.Now()) {
+			go s.refreshCollection(slug)
+		}
 		return entry.response
 	}
-	s.collectionMu.Unlock()
-
-	response := s.buildCollection(slug)
-
-	s.collectionMu.Lock()
-	s.collectionCache[slug] = collectionCacheEntry{expiresAt: time.Now().Add(config.CollectionCacheTTL()), response: response}
-	s.collectionMu.Unlock()
-
+	response, _ := s.refreshCollection(slug)
 	return response
+}
+
+// RunCollectionWarmer builds every collection at startup and then again before each
+// one expires, so visitors and crawlers always find them cached. Without it the first
+// request after every expiry paid for a catalog-wide build.
+func (s *Server) RunCollectionWarmer(ctx context.Context) {
+	slugs := make([]contracts.CollectionSlug, 0, len(collectionDefs))
+	for slug := range collectionDefs {
+		slugs = append(slugs, slug)
+	}
+	sort.Slice(slugs, func(i, j int) bool { return slugs[i] < slugs[j] })
+
+	// Let the first source refresh load the catalog before building from it.
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(20 * time.Second):
+	}
+	for {
+		for _, slug := range slugs {
+			if ctx.Err() != nil {
+				return
+			}
+			s.refreshCollection(slug)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(config.CollectionCacheTTL() / 2):
+		}
+	}
 }
 
 func (s *Server) handleCollection(w http.ResponseWriter, r *http.Request) {
