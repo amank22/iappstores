@@ -6,6 +6,7 @@ import { getAbsoluteUrl } from "@/lib/site";
 import {
   CATEGORY_DESCRIPTIONS,
   CATEGORY_LABELS,
+  DIRECTORY_PAGE_SIZE,
   INDEXABLE_CATEGORIES,
   getAppDisplayName,
   getAppPath
@@ -31,11 +32,13 @@ export const metadata: Metadata = {
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 export default async function AppsSitemapPage() {
-  const [recentApps, allApps, sources] = await Promise.all([
+  const [recentApps, allApps, sources, directory] = await Promise.all([
     fetchApps({ category: "recent", pageSize: 24, includeAppStore: false }),
     fetchApps({ pageSize: 60, includeAppStore: false }),
-    fetchSources()
+    fetchSources(),
+    fetchApps({ sort: "name-asc", pageSize: DIRECTORY_PAGE_SIZE, includeAppStore: false }).catch(() => null)
   ]);
+  const directoryPages = directory ? Array.from({ length: directory.pagination.totalPages }, (_, index) => index + 1) : [];
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -64,6 +67,28 @@ export default async function AppsSitemapPage() {
             ))}
           </div>
         </section>
+
+        {directoryPages.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>All apps A–Z</CardTitle>
+              <CardDescription>
+                Every app in the catalog, {DIRECTORY_PAGE_SIZE} per page in alphabetical order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {directoryPages.map((target) => (
+                <Link
+                  key={target}
+                  className="grid h-8 min-w-8 place-items-center rounded-md bg-muted/50 px-2 text-sm font-semibold ring-1 ring-foreground/10 hover:bg-muted"
+                  href={`/directory/${target}`}
+                >
+                  {target}
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>

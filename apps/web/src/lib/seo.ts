@@ -140,3 +140,6 @@ export function getLastModified(date: string | null): Date {
   const timestamp = Date.parse(date);
   return Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
 }
+
+/** Apps per page in the crawlable A-Z directory (/directory/<page>); the API caps pageSize at 60. */
+export const DIRECTORY_PAGE_SIZE = 60;

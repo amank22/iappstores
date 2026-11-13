@@ -115,6 +115,7 @@ Query behavior is defined in contracts:
 ## Frontend Notes
 
 - The home page (`apps/web/src/app/page.tsx`) loads its first page on the server and hands it to `components/home-client.tsx`. It keeps search, source, category, and iOS filters in URL query params and uses incremental loading.
+- `/directory/<page>` is a server-rendered A-Z list of every app (60 per page, plain links), linked page by page from `/apps` and from the header's "Apps" link. App pages were reachable only through the sitemap before (Search Console: "Referring page: none detected"), because the home page loads more apps with JavaScript. Keep a crawlable path to every app.
 - Keep the home page's first screen short: heading, search, one row of categories, the sponsor strip, then apps. Source, sort and iOS version live behind the "Filters" button in `components/app-browser.tsx` (shared with the category, repository and developer pages).
 - App detail pages live at `apps/web/src/app/apps/[appId]/page.tsx` and fetch from the API server side for metadata and Open Graph output.
 - API calls are centralized in `apps/web/src/lib/api.ts`; responses are parsed with shared zod schemas from `packages/contracts`.
