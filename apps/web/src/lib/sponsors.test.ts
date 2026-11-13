@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import { layoutSponsorStrip, shuffled, type SponsorStripData } from "./sponsors";
 
 function sponsor(id: string) {
-  return { id, name: id, tagline: "A tagline for the app", url: "https://example.com", iconUrl: null };
+  return {
+    id,
+    name: id,
+    tagline: "A tagline for the app",
+    url: "https://example.com",
+    iconUrl: null,
+    plan: "slot" as const,
+    slug: null,
+    description: null
+  };
 }
 
 function strip(count: number, availableSlots: number): SponsorStripData {

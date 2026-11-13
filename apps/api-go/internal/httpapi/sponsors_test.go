@@ -18,7 +18,10 @@ import (
 	"github.com/iappstores/api-go/internal/sponsors"
 )
 
-const testProductID = "pdt_sponsor"
+const (
+	testProductID     = "pdt_sponsor"
+	testPageProductID = "pdt_sponsor_page"
+)
 
 var testWebhookKey = []byte("0123456789abcdef0123456789abcdef")
 
@@ -27,6 +30,7 @@ var testWebhookKey = []byte("0123456789abcdef0123456789abcdef")
 func newSponsorServer(t *testing.T, slots int) (*Server, *[]string) {
 	t.Helper()
 	cancelled := &[]string{}
+	soldProducts = nil
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch {
 			*cancelled = append(*cancelled, strings.TrimPrefix(r.URL.Path, "/subscriptions/"))
@@ -34,9 +38,13 @@ func newSponsorServer(t *testing.T, slots int) (*Server, *[]string) {
 			return
 		}
 		var body struct {
-			Metadata map[string]string `json:"metadata"`
+			Metadata    map[string]string `json:"metadata"`
+			ProductCart []struct {
+				ProductID string `json:"product_id"`
+			} `json:"product_cart"`
 		}
 		json.NewDecoder(r.Body).Decode(&body)
+		soldProducts = append(soldProducts, body.ProductCart[0].ProductID)
 		fmt.Fprintf(w, `{"session_id":"cks_1","checkout_url":"https://checkout.test/%s"}`, body.Metadata["sponsor_id"])
 	}))
 	t.Cleanup(fake.Close)
@@ -44,6 +52,7 @@ func newSponsorServer(t *testing.T, slots int) (*Server, *[]string) {
 	t.Setenv("SPONSOR_SLOTS", strconv.Itoa(slots))
 	t.Setenv("SPONSOR_ADMIN_TOKEN", "admin-secret")
 	t.Setenv("DODO_SPONSOR_PRODUCT_ID", testProductID)
+	t.Setenv("DODO_SPONSOR_PAGE_PRODUCT_ID", testPageProductID)
 	t.Setenv("DODO_PAYMENTS_WEBHOOK_SECRET", "whsec_"+base64.StdEncoding.EncodeToString(testWebhookKey))
 	s := newTestServer(t)
 	s.Dodo = &sponsors.Dodo{BaseURL: fake.URL, APIKey: "test", HTTP: fake.Client()}
@@ -80,6 +89,9 @@ func startCheckout(t *testing.T, s *Server, email string) (sponsorID string, w *
 }
 
 var webhookSeq int
+
+// soldProducts is the product id of each checkout the fake Dodo was asked to open.
+var soldProducts []string
 
 func sendWebhook(t *testing.T, s *Server, sponsorID, subscriptionID, status, productID string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -230,5 +242,79 @@ func TestSponsorAdminRequiresToken(t *testing.T) {
 	t.Setenv("SPONSOR_ADMIN_TOKEN", "")
 	if w := call(t, s, "GET", "/api/sponsors/admin", nil, map[string]string{"Authorization": "Bearer "}); w.Code != 404 {
 		t.Fatalf("admin with no token configured: %d, want 404", w.Code)
+	}
+}
+
+func TestSponsorPagePlanGetsADedicatedPage(t *testing.T) {
+	s, _ := newSponsorServer(t, 2)
+	listing := map[string]string{
+		"plan": "page", "name": "Good App: Pro!", "tagline": "The best app there is",
+		"url": "https://good.example", "email": "buyer@example.com",
+	}
+
+	// A page needs real text to be worth indexing.
+	listing["description"] = "Too short."
+	if w := call(t, s, "POST", "/api/sponsors/checkout", listing, nil); w.Code != 400 {
+		t.Fatalf("short description: %d, want 400", w.Code)
+	}
+
+	listing["description"] = strings.Repeat("Good App signs and installs apps on your device. ", 6) + "\n\n\n\nSecond paragraph."
+	w := call(t, s, "POST", "/api/sponsors/checkout", listing, nil)
+	var out contracts.SponsorCheckoutResponse
+	json.Unmarshal(w.Body.Bytes(), &out)
+	id := strings.TrimPrefix(out.CheckoutURL, "https://checkout.test/")
+	if w.Code != 200 || id == "" {
+		t.Fatalf("checkout: %d %s", w.Code, w.Body)
+	}
+	if len(soldProducts) != 1 || soldProducts[0] != testPageProductID {
+		t.Fatalf("page plan was sold as %v, want the page product", soldProducts)
+	}
+
+	if w := sendWebhook(t, s, id, "sub_page", "active", testPageProductID); w.Code != 200 {
+		t.Fatalf("webhook: %d %s", w.Code, w.Body)
+	}
+	call(t, s, "POST", "/api/sponsors/admin/"+id+"/approve", nil, adminAuth)
+
+	got := readSponsors(t, s)
+	if len(got.Sponsors) != 1 {
+		t.Fatalf("sponsors = %+v", got.Sponsors)
+	}
+	sp := got.Sponsors[0]
+	if sp.Plan != "page" || sp.Slug == nil || *sp.Slug != "good-app-pro" {
+		t.Fatalf("plan = %q, slug = %v, want page / good-app-pro", sp.Plan, sp.Slug)
+	}
+	if sp.Description == nil || !strings.HasSuffix(*sp.Description, "device.\n\nSecond paragraph.") {
+		t.Fatalf("description not normalised: %q", *sp.Description)
+	}
+	if !got.PageCheckoutEnabled || got.PagePriceUSD != 99 {
+		t.Fatalf("page plan not advertised: %+v", got)
+	}
+
+	// A second sponsor with the same name must not take over the first one's URL.
+	listing["email"] = "other@example.com"
+	call(t, s, "POST", "/api/sponsors/checkout", listing, nil)
+	var admin contracts.SponsorAdminResponse
+	json.Unmarshal(call(t, s, "GET", "/api/sponsors/admin", nil, adminAuth).Body.Bytes(), &admin)
+	slugs := map[string]bool{}
+	for _, item := range admin.Sponsors {
+		slugs[*item.Slug] = true
+	}
+	if len(slugs) != 2 {
+		t.Fatalf("slugs are not unique: %v", slugs)
+	}
+}
+
+func TestSponsorPagePlanClosedWithoutItsProduct(t *testing.T) {
+	s, _ := newSponsorServer(t, 2)
+	t.Setenv("DODO_SPONSOR_PAGE_PRODUCT_ID", "")
+	w := call(t, s, "POST", "/api/sponsors/checkout", map[string]string{
+		"plan": "page", "name": "Good App", "tagline": "The best app there is", "url": "https://good.example",
+		"email": "buyer@example.com", "description": strings.Repeat("A long enough description. ", 10),
+	}, nil)
+	if w.Code != 503 {
+		t.Fatalf("page checkout without a page product: %d, want 503", w.Code)
+	}
+	if got := readSponsors(t, s); got.PageCheckoutEnabled || !got.CheckoutEnabled || got.Slots.Available != 2 {
+		t.Fatalf("sponsors = %+v", got)
 	}
 }

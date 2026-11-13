@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/iappstores/api-go/internal/dbconn"
@@ -55,12 +56,25 @@ const occupiesSlot = `(
 	OR (status = 'live' AND (ends_at IS NULL OR ends_at > ?1))
 )`
 
+// Plan is what a sponsor bought.
+type Plan string
+
+const (
+	// PlanSlot is a tile in the homepage sponsor row.
+	PlanSlot Plan = "slot"
+	// PlanPage is the tile plus a dedicated page at /sponsored/<slug>.
+	PlanPage Plan = "page"
+)
+
 type Listing struct {
 	Name    string
 	Tagline string
 	URL     string
 	IconURL *string
 	Email   string
+	Plan    Plan
+	// Description is the dedicated page's text (PlanPage only).
+	Description *string
 }
 
 type Sponsor struct {
@@ -70,6 +84,9 @@ type Sponsor struct {
 	URL            string
 	IconURL        *string
 	Email          string
+	Plan           Plan
+	Slug           *string
+	Description    *string
 	Status         Status
 	SubscriptionID *string
 	ApprovedAt     *int64
@@ -95,7 +112,7 @@ func newID() string {
 	return "sp_" + hex.EncodeToString(b)
 }
 
-const sponsorColumns = `id, name, tagline, url, icon_url, email, status, subscription_id, approved_at, ends_at, created_at, updated_at`
+const sponsorColumns = `id, name, tagline, url, icon_url, email, plan, slug, description, status, subscription_id, approved_at, ends_at, created_at, updated_at`
 
 type scanner interface {
 	Scan(dest ...interface{}) error
@@ -103,9 +120,9 @@ type scanner interface {
 
 func scanSponsor(row scanner, extra ...interface{}) (Sponsor, error) {
 	var s Sponsor
-	var iconURL, subscriptionID sql.NullString
+	var iconURL, subscriptionID, slug, description sql.NullString
 	var approvedAt, endsAt sql.NullInt64
-	dest := []interface{}{&s.ID, &s.Name, &s.Tagline, &s.URL, &iconURL, &s.Email, &s.Status, &subscriptionID, &approvedAt, &endsAt, &s.CreatedAt, &s.UpdatedAt}
+	dest := []interface{}{&s.ID, &s.Name, &s.Tagline, &s.URL, &iconURL, &s.Email, &s.Plan, &slug, &description, &s.Status, &subscriptionID, &approvedAt, &endsAt, &s.CreatedAt, &s.UpdatedAt}
 	if err := row.Scan(append(dest, extra...)...); err != nil {
 		return s, err
 	}
@@ -114,6 +131,12 @@ func scanSponsor(row scanner, extra ...interface{}) (Sponsor, error) {
 	}
 	if subscriptionID.Valid {
 		s.SubscriptionID = &subscriptionID.String
+	}
+	if slug.Valid {
+		s.Slug = &slug.String
+	}
+	if description.Valid {
+		s.Description = &description.String
 	}
 	if approvedAt.Valid {
 		s.ApprovedAt = &approvedAt.Int64
@@ -193,12 +216,62 @@ func (s *Store) Reserve(in Listing, slots int, now time.Time) (string, error) {
 		if recent >= maxCheckoutsPerHour {
 			return ErrBusy
 		}
-		_, err = tx.Exec(`INSERT INTO sponsors (id, name, tagline, url, icon_url, email, status, hold_expires_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, 'checkout', ?, ?, ?)`,
-			id, in.Name, in.Tagline, in.URL, in.IconURL, in.Email, now.Add(HoldTTL).UnixMilli(), nowMs, nowMs)
+		plan := in.Plan
+		if plan == "" {
+			plan = PlanSlot
+		}
+		var slug *string
+		if plan == PlanPage {
+			free, err := freeSlug(tx, in.Name, id)
+			if err != nil {
+				return err
+			}
+			slug = &free
+		}
+		_, err = tx.Exec(`INSERT INTO sponsors (id, name, tagline, url, icon_url, email, plan, slug, description, status, hold_expires_at, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'checkout', ?, ?, ?)`,
+			id, in.Name, in.Tagline, in.URL, in.IconURL, in.Email, string(plan), slug, in.Description, now.Add(HoldTTL).UnixMilli(), nowMs, nowMs)
 		return err
 	})
 	return id, err
+}
+
+// Slugify turns a name into a URL path segment: lowercase ASCII letters and digits
+// joined by single hyphens. Names with nothing usable give "".
+func Slugify(name string) string {
+	var b strings.Builder
+	pendingHyphen := false
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if pendingHyphen && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			pendingHyphen = false
+			b.WriteRune(r)
+		} else {
+			pendingHyphen = true
+		}
+	}
+	return b.String()
+}
+
+// freeSlug picks the page slug for a new listing: the slugified name, or that plus part
+// of the listing id when another listing (even an ended one, whose URL may still be
+// linked) already has it.
+func freeSlug(tx *sql.Tx, name, id string) (string, error) {
+	slug := Slugify(name)
+	suffix := strings.TrimPrefix(id, "sp_")[:6]
+	if slug == "" {
+		return "app-" + suffix, nil
+	}
+	var taken int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM sponsors WHERE slug = ?`, slug).Scan(&taken); err != nil {
+		return "", err
+	}
+	if taken > 0 {
+		return slug + "-" + suffix, nil
+	}
+	return slug, nil
 }
 
 // SetCheckoutSession records the Dodo checkout session created for a held slot.

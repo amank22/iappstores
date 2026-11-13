@@ -44,8 +44,21 @@ func (s *Server) sponsorCheckoutEnabled() bool {
 	return s.Dodo != nil && config.DodoSponsorProductID() != "" && config.DodoWebhookSecret() != ""
 }
 
+// sponsorPageCheckoutEnabled reports whether the plan with a dedicated page can be bought.
+func (s *Server) sponsorPageCheckoutEnabled() bool {
+	return s.sponsorCheckoutEnabled() && config.DodoSponsorPageProductID() != ""
+}
+
+// isSponsorProduct reports whether a Dodo product id is one of the sponsor plans.
+func isSponsorProduct(productID string) bool {
+	return productID != "" && (productID == config.DodoSponsorProductID() || productID == config.DodoSponsorPageProductID())
+}
+
 func sponsorDto(sp sponsors.Sponsor) contracts.SponsorDto {
-	return contracts.SponsorDto{ID: sp.ID, Name: sp.Name, Tagline: sp.Tagline, URL: sp.URL, IconURL: sp.IconURL}
+	return contracts.SponsorDto{
+		ID: sp.ID, Name: sp.Name, Tagline: sp.Tagline, URL: sp.URL, IconURL: sp.IconURL,
+		Plan: string(sp.Plan), Slug: sp.Slug, Description: sp.Description,
+	}
 }
 
 func (s *Server) sponsorSlots(now time.Time) (contracts.SponsorSlots, error) {
@@ -78,6 +91,9 @@ func (s *Server) handleSponsors(w http.ResponseWriter, r *http.Request) {
 		Slots:           slots,
 		PriceUSD:        config.SponsorPriceUSD(),
 		CheckoutEnabled: s.sponsorCheckoutEnabled(),
+
+		PagePriceUSD:        config.SponsorPagePriceUSD(),
+		PageCheckoutEnabled: s.sponsorPageCheckoutEnabled(),
 	})
 }
 
@@ -114,12 +130,37 @@ func cleanEmail(value string) (string, bool) {
 	return value, true
 }
 
+// cleanMultilineText is cleanText for text with paragraphs: each line is cleaned and
+// runs of blank lines collapse to one.
+func cleanMultilineText(value string) (string, bool) {
+	var lines []string
+	blank := true // drops leading blank lines
+	for _, line := range strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n") {
+		cleaned, ok := cleanText(line)
+		if !ok {
+			return "", false
+		}
+		if cleaned == "" {
+			if !blank {
+				lines = append(lines, "")
+			}
+			blank = true
+			continue
+		}
+		blank = false
+		lines = append(lines, cleaned)
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n")), true
+}
+
 type sponsorCheckoutRequest struct {
-	Name    string `json:"name"`
-	Tagline string `json:"tagline"`
-	URL     string `json:"url"`
-	IconURL string `json:"iconUrl"`
-	Email   string `json:"email"`
+	Plan        string `json:"plan"`
+	Name        string `json:"name"`
+	Tagline     string `json:"tagline"`
+	URL         string `json:"url"`
+	IconURL     string `json:"iconUrl"`
+	Email       string `json:"email"`
+	Description string `json:"description"`
 }
 
 // Limits for a listing's text. Keep in step with SponsorCheckoutRequestSchema in
@@ -127,6 +168,8 @@ type sponsorCheckoutRequest struct {
 const (
 	sponsorNameMin, sponsorNameMax       = 2, 40
 	sponsorTaglineMin, sponsorTaglineMax = 10, 90
+	// The dedicated page's text: enough to be a real page, not a novel.
+	sponsorDescriptionMin, sponsorDescriptionMax = 200, 3000
 )
 
 func parseSponsorListing(in sponsorCheckoutRequest) (sponsors.Listing, map[string]string) {
@@ -157,6 +200,20 @@ func parseSponsorListing(in sponsorCheckoutRequest) (sponsors.Listing, map[strin
 		problems["email"] = "Enter a valid email address."
 	}
 
+	switch in.Plan {
+	case "", string(sponsors.PlanSlot):
+		listing.Plan = sponsors.PlanSlot
+	case string(sponsors.PlanPage):
+		listing.Plan = sponsors.PlanPage
+		description, ok := cleanMultilineText(in.Description)
+		if n := utf8.RuneCountInString(description); !ok || n < sponsorDescriptionMin || n > sponsorDescriptionMax {
+			problems["description"] = "Description must be 200 to 3000 characters."
+		}
+		listing.Description = &description
+	default:
+		problems["plan"] = "Plan must be slot or page."
+	}
+
 	listing.Name, listing.Tagline, listing.URL, listing.Email = name, tagline, link, email
 	return listing, problems
 }
@@ -184,6 +241,15 @@ func (s *Server) handleSponsorCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	productID := config.DodoSponsorProductID()
+	if listing.Plan == sponsors.PlanPage {
+		if !s.sponsorPageCheckoutEnabled() {
+			sendError(w, 503, "sponsor_checkout_unavailable", "The dedicated page plan is not on sale yet.", nil)
+			return
+		}
+		productID = config.DodoSponsorPageProductID()
+	}
+
 	id, err := s.Sponsors.Reserve(listing, config.SponsorSlots(), time.Now())
 	switch {
 	case errors.Is(err, sponsors.ErrSoldOut):
@@ -198,7 +264,7 @@ func (s *Server) handleSponsorCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session, err := s.Dodo.CreateCheckout(r.Context(), sponsors.CheckoutRequest{
-		ProductID: config.DodoSponsorProductID(),
+		ProductID: productID,
 		SponsorID: id,
 		Email:     listing.Email,
 		Name:      listing.Name,
@@ -278,8 +344,8 @@ func (s *Server) handleSponsorWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ignored := map[string]bool{"ok": true, "ignored": true}
-	// The Dodo account may sell other products too; only this one is a sponsor slot.
-	if !strings.HasPrefix(event.Type, "subscription.") || event.Data.ProductID != config.DodoSponsorProductID() {
+	// The Dodo account may sell other products too; only the sponsor plans matter here.
+	if !strings.HasPrefix(event.Type, "subscription.") || !isSponsorProduct(event.Data.ProductID) {
 		writeJSON(w, 200, ignored)
 		return
 	}

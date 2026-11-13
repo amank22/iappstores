@@ -354,12 +354,19 @@ export const AppStatusResponseSchema = z.object({
 
 // --- Sponsor slots: paid homepage placements (apps/api-go/internal/sponsors) ---
 
+/** "slot" is a home page tile; "page" adds a dedicated page at /sponsored/<slug>. */
+export const SponsorPlanSchema = z.enum(["slot", "page"]);
+
 export const SponsorDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
   tagline: z.string(),
   url: z.string(),
-  iconUrl: z.string().nullable()
+  iconUrl: z.string().nullable(),
+  plan: SponsorPlanSchema,
+  /** Set for the "page" plan: the path segment and body text of the dedicated page. */
+  slug: z.string().nullable(),
+  description: z.string().nullable()
 });
 
 export const SponsorSlotsSchema = z.object({
@@ -372,17 +379,26 @@ export const SponsorsResponseSchema = z.object({
   slots: SponsorSlotsSchema,
   priceUsd: z.number(),
   /** False until Dodo Payments is configured on the API. */
-  checkoutEnabled: z.boolean()
+  checkoutEnabled: z.boolean(),
+  pagePriceUsd: z.number(),
+  pageCheckoutEnabled: z.boolean()
 });
 
 /** Limits mirror parseSponsorListing in apps/api-go/internal/httpapi/sponsors.go. */
-export const SponsorCheckoutRequestSchema = z.object({
-  name: z.string().trim().min(2).max(40),
-  tagline: z.string().trim().min(10).max(90),
-  url: z.string().trim().startsWith("https://").max(300),
-  iconUrl: z.string().trim().startsWith("https://").max(500).optional(),
-  email: z.string().trim().email().max(254)
-});
+export const SponsorCheckoutRequestSchema = z
+  .object({
+    plan: SponsorPlanSchema,
+    name: z.string().trim().min(2).max(40),
+    tagline: z.string().trim().min(10).max(90),
+    url: z.string().trim().startsWith("https://").max(300),
+    iconUrl: z.string().trim().startsWith("https://").max(500).optional(),
+    email: z.string().trim().email().max(254),
+    description: z.string().trim().max(3000).optional()
+  })
+  .refine((value) => value.plan !== "page" || (value.description ?? "").length >= 200, {
+    path: ["description"],
+    message: "The dedicated page needs at least 200 characters of text."
+  });
 
 export const SponsorCheckoutResponseSchema = z.object({
   checkoutUrl: z.string()
@@ -534,6 +550,7 @@ export type PopularDownloadStatsItem = z.infer<typeof PopularDownloadStatsItemSc
 export type ProblemDownloadLinkStatsItem = z.infer<typeof ProblemDownloadLinkStatsItemSchema>;
 export type DownloadStatsResponse = z.infer<typeof DownloadStatsResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
+export type SponsorPlan = z.infer<typeof SponsorPlanSchema>;
 export type SponsorDto = z.infer<typeof SponsorDtoSchema>;
 export type SponsorSlots = z.infer<typeof SponsorSlotsSchema>;
 export type SponsorsResponse = z.infer<typeof SponsorsResponseSchema>;

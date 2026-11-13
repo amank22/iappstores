@@ -240,6 +240,12 @@ func SponsorPriceUSD() int {
 	return int(getPositiveFloat("SPONSOR_PRICE_USD", 30))
 }
 
+// SponsorPagePriceUSD is the displayed monthly price of the plan that adds a dedicated
+// page (SPONSOR_PAGE_PRICE_USD, default 99).
+func SponsorPagePriceUSD() int {
+	return int(getPositiveFloat("SPONSOR_PAGE_PRICE_USD", 99))
+}
+
 // SponsorAutoApprove publishes a paid listing without review (SPONSOR_AUTO_APPROVE=true).
 func SponsorAutoApprove() bool {
 	return getBoolFlag("SPONSOR_AUTO_APPROVE")
@@ -268,6 +274,12 @@ func DodoLiveMode() bool {
 // DodoSponsorProductID is the Dodo subscription product a sponsor slot is sold as.
 func DodoSponsorProductID() string {
 	return strings.TrimSpace(os.Getenv("DODO_SPONSOR_PRODUCT_ID"))
+}
+
+// DodoSponsorPageProductID is the Dodo subscription product for a slot plus a dedicated
+// page. Unset means that plan is not on sale.
+func DodoSponsorPageProductID() string {
+	return strings.TrimSpace(os.Getenv("DODO_SPONSOR_PAGE_PRODUCT_ID"))
 }
 
 // SiteURL is the public site origin, used for checkout return links (SITE_URL, falling

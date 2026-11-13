@@ -1,5 +1,9 @@
 -- Paid homepage sponsor slots (see internal/sponsors).
 --
+-- plan:
+--   slot  a tile in the homepage sponsor row
+--   page  the tile plus a dedicated page at /sponsored/<slug>, with description as its text
+--
 -- status:
 --   checkout        form submitted, slot held until hold_expires_at while the buyer pays
 --   pending_review  paid, holds a slot, waiting for admin approval before it is shown
@@ -15,6 +19,9 @@ CREATE TABLE IF NOT EXISTS sponsors (
   url TEXT NOT NULL,
   icon_url TEXT,
   email TEXT NOT NULL,
+  plan TEXT NOT NULL DEFAULT 'slot',
+  slug TEXT,
+  description TEXT,
   status TEXT NOT NULL,
   checkout_session_id TEXT,
   subscription_id TEXT,
@@ -28,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sponsors (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sponsors_subscription ON sponsors(subscription_id) WHERE subscription_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sponsors_slug ON sponsors(slug) WHERE slug IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_sponsors_status ON sponsors(status);
 
 CREATE TABLE IF NOT EXISTS sponsor_clicks (

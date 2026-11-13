@@ -1,5 +1,15 @@
 import type { SponsorDto, SponsorsResponse } from "@iappstores/contracts";
 
+/** The dedicated page of a "page" plan sponsor, or null for a plain slot. */
+export function getSponsorPagePath(sponsor: Pick<SponsorDto, "plan" | "slug">): string | null {
+  return sponsor.plan === "page" && sponsor.slug ? `/sponsored/${encodeURIComponent(sponsor.slug)}` : null;
+}
+
+/** The click-counting link out to a sponsor's own site. */
+export function getSponsorOutboundPath(sponsor: Pick<SponsorDto, "id">): string {
+  return `/api/sponsors/${encodeURIComponent(sponsor.id)}/go`;
+}
+
 /** What the home page needs to draw its sponsor strip. */
 export type SponsorStripData = {
   /** Paid sponsors, already in the order to show them. */

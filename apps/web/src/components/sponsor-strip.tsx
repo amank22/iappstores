@@ -2,17 +2,23 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRightIcon, MegaphoneIcon, NotePencilIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, ArrowUpRightIcon, MegaphoneIcon, NotePencilIcon } from "@phosphor-icons/react";
 import type { SponsorDto } from "@iappstores/contracts";
 import { trackCrossPromoClick, trackSponsorClick } from "@/lib/analytics";
-import { layoutSponsorStrip, type SponsorStripData } from "@/lib/sponsors";
+import { getSponsorOutboundPath, getSponsorPagePath, layoutSponsorStrip, type SponsorStripData } from "@/lib/sponsors";
 import { getCorrectMyPaperUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 const tileClass =
   "group flex min-w-[15rem] max-w-xl flex-1 items-center gap-3 rounded-lg bg-card px-3 py-2.5 ring-1 ring-foreground/10 transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring";
 
-function SponsorIcon({ sponsor }: { sponsor: Pick<SponsorDto, "name" | "iconUrl"> }) {
+export function SponsorIcon({
+  sponsor,
+  className = "size-9 rounded-lg text-sm"
+}: {
+  sponsor: Pick<SponsorDto, "name" | "iconUrl">;
+  className?: string;
+}) {
   const [failed, setFailed] = useState(false);
   // A server-rendered image can fail before React attaches onError, so also check once
   // on mount whether it already loaded as broken.
@@ -31,7 +37,7 @@ function SponsorIcon({ sponsor }: { sponsor: Pick<SponsorDto, "name" | "iconUrl"
         loading="lazy"
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className="size-9 shrink-0 rounded-lg object-cover ring-1 ring-foreground/10"
+        className={cn("shrink-0 object-cover ring-1 ring-foreground/10", className)}
       />
     );
   }
@@ -39,7 +45,10 @@ function SponsorIcon({ sponsor }: { sponsor: Pick<SponsorDto, "name" | "iconUrl"
   return (
     <span
       aria-hidden
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground ring-1 ring-foreground/10"
+      className={cn(
+        "flex shrink-0 items-center justify-center bg-muted font-semibold text-muted-foreground ring-1 ring-foreground/10",
+        className
+      )}
     >
       {sponsor.name.trim().charAt(0).toUpperCase()}
     </span>
@@ -55,11 +64,29 @@ function TileText({ name, tagline }: { name: string; tagline: string }) {
   );
 }
 
-/** One sponsor tile. `href` overrides the click-counting link (used for the form's preview). */
+/**
+ * One sponsor tile. A sponsor with a dedicated page links to it; the others link out
+ * through the click counter. `href` overrides both (used for the form's preview).
+ */
 export function SponsorTile({ sponsor, href }: { sponsor: SponsorDto; href?: string }) {
+  const pagePath = href ? null : getSponsorPagePath(sponsor);
+  if (pagePath) {
+    return (
+      <Link
+        href={pagePath}
+        onClick={() => trackSponsorClick({ sponsorId: sponsor.id, sponsorName: sponsor.name })}
+        className={tileClass}
+      >
+        <SponsorIcon sponsor={sponsor} />
+        <TileText name={sponsor.name} tagline={sponsor.tagline} />
+        <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground" aria-hidden />
+      </Link>
+    );
+  }
+
   return (
     <a
-      href={href ?? `/api/sponsors/${encodeURIComponent(sponsor.id)}/go`}
+      href={href ?? getSponsorOutboundPath(sponsor)}
       target="_blank"
       // Paid links must be marked as such for search engines.
       rel="sponsored nofollow noopener"

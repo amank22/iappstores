@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { SponsorsResponse } from "@iappstores/contracts";
-import { SponsorForm } from "@/components/sponsor-form";
+import { SponsorForm, type SponsorPlanOffer } from "@/components/sponsor-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchSponsors } from "@/lib/api";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Sponsor iappstores: put your app on the home page";
 const description =
-  "Buy one of a few sponsor slots on the iappstores home page. A flat monthly price, shown to everyone browsing IPA apps, cancel any time.";
+  "Buy one of a few sponsor slots on the iappstores home page, with an optional dedicated page for your app. A flat monthly price, cancel any time.";
 
 export const metadata: Metadata = {
   title,
@@ -25,6 +25,11 @@ const FAQ: Array<{ question: string; answer: string }> = [
     question: "Where does my listing appear?",
     answer:
       "In the sponsored row on the home page, directly above the app list. Every visitor sees it before they start browsing. Your tile shows an icon, a name and one line of text, and links to your site."
+  },
+  {
+    question: "What does the dedicated page add?",
+    answer:
+      "Your own page on iappstores.com with your icon, name, tagline and up to 3,000 characters of your text. It is listed in our sitemap and open to search engines, and your home page tile links to it. The button to your site is marked as a sponsored link, as search engines require for paid placements, so the page earns you visibility in search rather than link credit. The page comes down when the sponsorship ends."
   },
   {
     question: "Is one slot better than another?",
@@ -59,9 +64,33 @@ async function loadSponsors(): Promise<SponsorsResponse | null> {
 export default async function SponsorPage() {
   const sponsors = await loadSponsors();
   const priceUsd = sponsors?.priceUsd ?? 30;
+  const pagePriceUsd = sponsors?.pagePriceUsd ?? 99;
   const available = sponsors?.slots.available ?? 0;
   const total = sponsors?.slots.total ?? 0;
   const canBuy = Boolean(sponsors?.checkoutEnabled) && available > 0;
+
+  // Both plans take one of the same slots; the second adds the dedicated page.
+  const offers: SponsorPlanOffer[] = [];
+  if (canBuy) {
+    offers.push({
+      plan: "slot",
+      priceUsd,
+      title: "Sponsor slot",
+      points: ["A tile in the sponsored row on the home page", "Icon, name, one line of text, link to your site"]
+    });
+    if (sponsors?.pageCheckoutEnabled) {
+      offers.push({
+        plan: "page",
+        priceUsd: pagePriceUsd,
+        title: "Slot + dedicated page",
+        points: [
+          "Everything in the sponsor slot",
+          "Your own page on iappstores.com, open to search engines",
+          "Up to 3,000 characters of your own text"
+        ]
+      });
+    }
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -83,11 +112,13 @@ export default async function SponsorPage() {
           <p className="max-w-2xl text-base leading-7 text-muted-foreground">
             iappstores is where people look for iOS apps to sideload. A sponsor slot puts your app in a row at the top of
             the home page, above the app list, for <span className="font-semibold text-foreground">${priceUsd} a month</span>.
-            There are only {total > 0 ? total : "a few"} slots, so the row never turns into a wall of ads.
+            For <span className="font-semibold text-foreground">${pagePriceUsd} a month</span> you also get a dedicated
+            page for your app that search engines can index. There are only {total > 0 ? total : "a few"} slots, so the
+            row never turns into a wall of ads.
           </p>
         </header>
 
-        <SponsorForm priceUsd={priceUsd} canBuy={canBuy} soldOut={Boolean(sponsors?.checkoutEnabled) && available === 0} />
+        <SponsorForm offers={offers} soldOut={Boolean(sponsors?.checkoutEnabled) && available === 0} />
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold tracking-tight">How it works</h2>

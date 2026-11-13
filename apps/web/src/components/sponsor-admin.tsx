@@ -137,6 +137,7 @@ export function SponsorAdmin() {
                 <li key={sponsor.id} className="space-y-2 rounded-lg bg-card p-4 ring-1 ring-foreground/10">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{sponsor.name}</span>
+                    {sponsor.plan === "page" ? <Badge variant="secondary">Slot + page</Badge> : null}
                     <Badge variant={sponsor.status === "pending_review" || sponsor.status === "queued" ? "default" : "outline"}>
                       {STATUS_LABELS[sponsor.status]}
                     </Badge>
@@ -146,6 +147,14 @@ export function SponsorAdmin() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">{sponsor.tagline}</p>
+                  {sponsor.description ? (
+                    <details className="text-sm text-muted-foreground">
+                      <summary className="cursor-pointer text-foreground">
+                        Page text{sponsor.slug ? ` (/sponsored/${sponsor.slug})` : ""}
+                      </summary>
+                      <p className="mt-2 whitespace-pre-line leading-6">{sponsor.description}</p>
+                    </details>
+                  ) : null}
                   <p className="break-all text-xs text-muted-foreground">
                     <a href={sponsor.url} target="_blank" rel="noopener noreferrer nofollow" className="underline underline-offset-4">
                       {sponsor.url}

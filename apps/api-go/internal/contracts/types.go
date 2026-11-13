@@ -427,6 +427,11 @@ type SponsorDto struct {
 	Tagline string  `json:"tagline"`
 	URL     string  `json:"url"`
 	IconURL *string `json:"iconUrl"`
+	// Plan is "slot" or "page". A page sponsor also has a dedicated page at
+	// /sponsored/<slug> whose body is Description.
+	Plan        string  `json:"plan"`
+	Slug        *string `json:"slug"`
+	Description *string `json:"description"`
 }
 
 type SponsorSlots struct {
@@ -440,6 +445,9 @@ type SponsorsResponse struct {
 	PriceUSD int          `json:"priceUsd"`
 	// CheckoutEnabled is false until Dodo Payments is configured.
 	CheckoutEnabled bool `json:"checkoutEnabled"`
+	// PagePriceUSD and PageCheckoutEnabled describe the plan with a dedicated page.
+	PagePriceUSD        int  `json:"pagePriceUsd"`
+	PageCheckoutEnabled bool `json:"pageCheckoutEnabled"`
 }
 
 type SponsorCheckoutResponse struct {
