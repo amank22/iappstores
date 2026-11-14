@@ -6,6 +6,7 @@ import { Manrope } from "next/font/google";
 import Script from "next/script";
 import { cn } from "@/lib/utils";
 import { SiteHeader } from "@/components/site-header";
+import { HumanSignal } from "@/components/human-signal";
 
 const googleAnalyticsId = "G-VSPK9T0VT9";
 
@@ -99,6 +100,7 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${googleAnalyticsId}');`}
         </Script>
+        <HumanSignal />
         <SiteHeader />
         {children}
       </body>

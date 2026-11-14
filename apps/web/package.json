@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fingerprintjs/botd": "^2.0.0",
     "@iappstores/contracts": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "class-variance-authority": "^0.7.1",

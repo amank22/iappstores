@@ -79,3 +79,19 @@ export function trackSponsorClick(fields: { sponsorId: string; sponsorName: stri
     event_category: "sponsor"
   });
 }
+
+export function trackBotCheck(fields: { bot: boolean; botKind: string | null }): void {
+  trackEvent("bot_check", {
+    bot: fields.bot ? "yes" : "no",
+    bot_kind: fields.botKind ?? "none",
+    event_category: "traffic_quality"
+  });
+}
+
+export function trackHumanSignal(fields: { trigger: string; botdResult: "bot" | "human" | "unknown" }): void {
+  trackEvent("human_signal", {
+    trigger: fields.trigger,
+    botd_result: fields.botdResult,
+    event_category: "traffic_quality"
+  });
+}
