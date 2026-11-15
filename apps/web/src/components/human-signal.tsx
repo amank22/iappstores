@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { trackBotCheck, trackHumanSignal } from "@/lib/analytics";
+import { trackBotCheck, trackHumanSignal, trackPageLoaded } from "@/lib/analytics";
 
+const SESSION_KEY_PAGE_LOADED = "iappstores:page-loaded";
 const SESSION_KEY_BOT_CHECK = "iappstores:bot-check";
 const SESSION_KEY_HUMAN = "iappstores:human-signal";
 
@@ -25,7 +26,9 @@ function markSent(key: string): void {
 }
 
 /**
- * Estimates human traffic for analytics. It sends two GA4 events, each at most once per browser session:
+ * Estimates human traffic for analytics. It sends three GA4 events, each at most once per browser session:
+ *  - `page_loaded`: sent immediately, before BotD loads. Compare it with `bot_check` to see how many
+ *    visitors leave before the check finishes.
  *  - `bot_check`: BotD's verdict (headless or automated browser or not).
  *  - `human_signal`: a real, trusted user interaction (scroll, tap, key press or pointer move).
  * "Likely human" visitors are those with a `human_signal` event whose `botd_result` is not "bot".
@@ -35,6 +38,11 @@ export function HumanSignal() {
   useEffect(() => {
     let botdResult: BotdResult = "unknown";
     let cancelled = false;
+
+    if (!alreadySent(SESSION_KEY_PAGE_LOADED)) {
+      markSent(SESSION_KEY_PAGE_LOADED);
+      trackPageLoaded();
+    }
 
     if (!alreadySent(SESSION_KEY_BOT_CHECK)) {
       import("@fingerprintjs/botd")
