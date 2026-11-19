@@ -1,0 +1,182 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>iappstores intro</title>
+<style>
+:root{--bg:#070d1c;--ink:#f1f5ff;--mute:#8fa3c7;--blue:#3b82f6;--blue2:#60a5fa;--card:#fff;--line:#e3e9f5;--green:#16a34a}
+*{box-sizing:border-box;margin:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg);font-family:Inter,"Inter Display",system-ui,sans-serif;color:var(--ink)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;
+ background:radial-gradient(1200px 800px at 80% 10%,#16306b 0%,transparent 60%),radial-gradient(900px 700px at 0% 100%,#0e2a5c 0%,transparent 60%),var(--bg)}
+#grid{position:absolute;inset:-80px;background-image:linear-gradient(#ffffff0d 1px,transparent 1px),linear-gradient(90deg,#ffffff0d 1px,transparent 1px);background-size:80px 80px;
+ mask-image:radial-gradient(circle at 50% 50%,#000 20%,transparent 75%)}
+.scene{position:absolute;inset:0;opacity:0}
+.cap{position:absolute;left:120px;top:50%;width:640px;transform:translateY(-50%)}
+.cap .k{font-size:22px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue2);font-weight:700;margin-bottom:22px}
+.cap h2{font-size:84px;line-height:1.02;font-weight:800;letter-spacing:-.03em}
+.cap p{font-size:30px;line-height:1.4;color:var(--mute);margin-top:26px;font-weight:500}
+.win{position:absolute;left:900px;top:130px;width:900px;height:820px;background:#f6f8fd;border-radius:28px;box-shadow:0 50px 120px #0009,0 0 0 1px #ffffff22;overflow:hidden;color:#0f1a33}
+.bar{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 24px;gap:10px}
+.bar i{width:14px;height:14px;border-radius:50%;background:#dbe3f3}
+.body{padding:28px}
+.search{height:72px;background:#fff;border:2px solid var(--blue);border-radius:18px;display:flex;align-items:center;padding:0 24px;font-size:30px;font-weight:600;box-shadow:0 0 0 8px #3b82f622}
+.caret{display:inline-block;width:3px;height:34px;background:var(--blue);margin-left:3px;vertical-align:middle}
+.chips{display:flex;gap:12px;margin:20px 0}
+.chip{padding:10px 20px;border-radius:99px;background:#e9eefb;font-size:22px;font-weight:600;color:#33456e}
+.chip.on{background:var(--blue);color:#fff}
+.row{display:flex;align-items:center;gap:22px;background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px 24px;margin-bottom:16px}
+.ic{width:84px;height:84px;border-radius:20px;flex:none;display:grid;place-items:center;font-size:40px;font-weight:800;color:#fff}
+.nm{font-size:30px;font-weight:700}.sub{font-size:21px;color:#6a7aa0;margin-top:4px}
+.pr{margin-left:auto;text-align:right;font-size:28px;font-weight:800}
+.pill{display:inline-block;padding:6px 14px;border-radius:99px;font-size:19px;font-weight:700}
+.logo{width:150px;height:150px}
+.abs{position:absolute}
+.foot{position:fixed;left:900px;top:972px;right:auto;bottom:auto;font-size:18px;color:#6b7fa8;letter-spacing:.04em}
+.big{position:absolute;left:0;right:0;text-align:center}
+</style></head>
+<body><div id="stage"><div id="grid"></div>
+
+<!-- S1 hook -->
+<div class="scene" id="s1">
+  <svg class="abs logo" id="l1" viewBox="0 0 128 128" style="left:885px;top:230px"><use href="#mark"/></svg>
+  <div class="big" id="h1a" style="top:430px;font-size:112px;font-weight:800;letter-spacing:-.035em">Every App Store app.</div>
+  <div class="big" id="h1b" style="top:570px;font-size:112px;font-weight:800;letter-spacing:-.035em;color:var(--blue2)">Finally browsable.</div>
+  <div class="big" id="h1c" style="top:760px;font-size:36px;color:var(--mute);font-weight:600"><span id="cnt">0</span> apps in the catalog</div>
+</div>
+
+<!-- S2 search -->
+<div class="scene" id="s2">
+  <div class="cap"><div class="k">Search &amp; filter</div><h2>Find the app,<br>not the noise.</h2><p>Search the whole catalog and narrow by genre.</p></div>
+  <div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="body">
+    <div class="search"><span id="q"></span><span class="caret" id="caret"></span></div>
+    <div class="chips"><span class="chip on">Photo &amp; Video</span><span class="chip">All genres</span><span class="chip">Free</span><span class="chip">4★ &amp; up</span></div>
+    <div class="row r2"><div class="ic" style="background:linear-gradient(135deg,#f97316,#ec4899)">P</div><div><div class="nm">Pixel Lab</div><div class="sub">Photo &amp; Video · Studio Alpha</div></div><div class="pr">Free</div></div>
+    <div class="row r2"><div class="ic" style="background:linear-gradient(135deg,#22d3ee,#3b82f6)">S</div><div><div class="nm">Snapwise Editor</div><div class="sub">Photo &amp; Video · Bright Co.</div></div><div class="pr">$4.99</div></div>
+    <div class="row r2"><div class="ic" style="background:linear-gradient(135deg,#a78bfa,#6366f1)">F</div><div><div class="nm">Filmstrip</div><div class="sub">Photo &amp; Video · North Lane</div></div><div class="pr">$2.99</div></div>
+    <div class="row r2"><div class="ic" style="background:linear-gradient(135deg,#34d399,#059669)">L</div><div><div class="nm">Lumen Raw</div><div class="sub">Photo &amp; Video · Lumen Labs</div></div><div class="pr">Free</div></div>
+  </div><div class="foot">Illustrative apps</div></div>
+</div>
+
+<!-- S3 price drop -->
+<div class="scene" id="s3">
+  <div class="cap"><div class="k">Price drops</div><h2>Never pay full<br>price again.</h2><p>Every price change is tracked, so the drops surface themselves.</p></div>
+  <div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="body">
+    <div class="row" style="padding:30px"><div class="ic" style="width:120px;height:120px;font-size:56px;background:linear-gradient(135deg,#fb7185,#f43f5e)">D</div>
+      <div><div class="nm" style="font-size:40px">Draftly</div><div class="sub" style="font-size:25px">Productivity · Ink &amp; Co.</div></div>
+      <div class="pr" style="font-size:44px"><div id="old" style="color:#9aa8c7;text-decoration:line-through;font-size:30px;position:relative;display:inline-block">$6.99</div><br><span id="new" style="color:var(--green)">Free</span></div></div>
+    <div style="margin:10px 0 14px"><span class="pill" id="drop" style="background:#dcfce7;color:#15803d;font-size:24px">▼ Price drop</span></div>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:22px;padding:26px 30px;height:400px;position:relative">
+      <div style="font-size:24px;font-weight:700;color:#33456e">Price history</div>
+      <svg viewBox="0 0 780 300" style="position:absolute;left:30px;top:70px;width:780px;height:300px">
+        <g stroke="#e3e9f5" stroke-width="2"><line x1="0" y1="40" x2="780" y2="40"/><line x1="0" y1="150" x2="780" y2="150"/><line x1="0" y1="260" x2="780" y2="260"/></g>
+        <path id="hist" d="M0 60 H200 V60 H300 V150 H460 V60 H560 V260 H780" fill="none" stroke="#2563eb" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+        <circle id="dot" r="14" fill="#16a34a" stroke="#fff" stroke-width="5" cx="780" cy="260" opacity="0"/>
+      </svg></div>
+  </div><div class="foot">Illustrative data</div></div>
+</div>
+
+<!-- S4 countries -->
+<div class="scene" id="s4">
+  <div class="cap"><div class="k">Local prices</div><h2>Your storefront.<br>Your price.</h2><p>See pricing and availability for ten major App Store countries.</p></div>
+  <div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="body">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px" id="cs"></div>
+    <div class="row" style="margin-top:34px;padding:34px"><div class="ic" style="width:120px;height:120px;font-size:56px;background:linear-gradient(135deg,#22d3ee,#3b82f6)">M</div>
+      <div><div class="nm" style="font-size:40px">Mapwise</div><div class="sub" style="font-size:25px">Navigation · Atlas Studio</div></div>
+      <div class="pr" style="font-size:60px" id="loc">$4.99</div></div>
+    <div style="display:flex;gap:14px;margin-top:6px"><span class="pill" style="background:#e0ecff;color:#1d4ed8;font-size:22px" id="ctry">United States</span><span class="pill" style="background:#dcfce7;color:#15803d;font-size:22px">Available</span></div>
+  </div><div class="foot">Illustrative prices</div></div>
+</div>
+
+<!-- S5 collections -->
+<div class="scene" id="s5">
+  <div class="cap"><div class="k">Curated</div><h2>Hand-picked<br>collections.</h2><p>Plus an app of the day, chosen fresh every morning.</p></div>
+  <div class="abs" id="cols" style="left:900px;top:150px;width:900px">
+    <div class="col" style="height:230px;border-radius:30px;margin-bottom:24px;padding:36px 44px;background:linear-gradient(120deg,#6366f1,#8b5cf6)"><div style="font-size:20px;letter-spacing:.16em;font-weight:700;opacity:.8">COLLECTION</div><div style="font-size:54px;font-weight:800;margin-top:10px">Focus tools</div><div style="font-size:26px;opacity:.85;margin-top:6px">Apps for deep work</div></div>
+    <div class="col" style="height:230px;border-radius:30px;margin-bottom:24px;padding:36px 44px;background:linear-gradient(120deg,#0ea5e9,#14b8a6)"><div style="font-size:20px;letter-spacing:.16em;font-weight:700;opacity:.8">COLLECTION</div><div style="font-size:54px;font-weight:800;margin-top:10px">Travel offline</div><div style="font-size:26px;opacity:.85;margin-top:6px">Maps, guides, translators</div></div>
+    <div class="col" style="height:230px;border-radius:30px;padding:36px 44px;background:linear-gradient(120deg,#f59e0b,#ef4444);position:relative"><div style="font-size:20px;letter-spacing:.16em;font-weight:700;opacity:.85">APP OF THE DAY</div><div style="font-size:54px;font-weight:800;margin-top:10px">Pixel Lab</div><div style="font-size:26px;opacity:.9;margin-top:6px">Today's pick</div><div style="position:absolute;right:44px;top:44px;width:140px;height:140px;border-radius:34px;background:#ffffff33;display:grid;place-items:center;font-size:72px;font-weight:800">P</div></div>
+  </div><div class="foot">Illustrative collections</div>
+</div>
+
+<!-- S6 similar -->
+<div class="scene" id="s6">
+  <div class="cap"><div class="k">Discover</div><h2>Apps like<br>the one you love.</h2><p>Jump from any app to its closest alternatives.</p></div>
+  <svg class="abs" id="web" viewBox="0 0 900 820" style="left:900px;top:130px;width:900px;height:820px"></svg>
+</div>
+
+<!-- S7 outro -->
+<div class="scene" id="s7">
+  <svg class="abs logo" id="l7" viewBox="0 0 128 128" style="left:885px;top:210px"><use href="#mark"/></svg>
+  <div class="big" id="o1" style="top:430px;font-size:150px;font-weight:800;letter-spacing:-.04em">iappstores</div>
+  <div class="big" id="o2" style="top:620px;font-size:46px;color:var(--mute);font-weight:600">The App Store, made browsable.</div>
+  <div class="big" id="o3" style="top:760px"><span style="display:inline-block;padding:22px 52px;border-radius:99px;background:var(--blue);font-size:40px;font-weight:700">iappstores.com</span></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+ <linearGradient id="bg" x1="18" x2="110" y1="14" y2="114" gradientUnits="userSpaceOnUse"><stop stop-color="#60A5FA"/><stop offset=".52" stop-color="#2563EB"/><stop offset="1" stop-color="#0F172A"/></linearGradient>
+ <linearGradient id="card" x1="38" x2="94" y1="28" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".96"/><stop offset="1" stop-color="#DBEAFE" stop-opacity=".82"/></linearGradient>
+ <g id="mark"><rect width="128" height="128" rx="30" fill="url(#bg)"/><path fill="#93C5FD" fill-opacity=".28" d="M22 32c0-6.6 5.4-12 12-12h45c6.6 0 12 5.4 12 12v5H34c-6.6 0-12 5.4-12 12V32Z"/><rect x="33" y="29" width="62" height="72" rx="16" fill="url(#card)" opacity=".92"/><rect x="45" y="43" width="38" height="7" rx="3.5" fill="#1D4ED8" opacity=".78"/><rect x="45" y="57" width="28" height="7" rx="3.5" fill="#1D4ED8" opacity=".42"/><path fill="#1D4ED8" d="M68 66a4 4 0 0 0-8 0v16.3l-6.2-6.1a4 4 0 0 0-5.6 5.6l13 13a4 4 0 0 0 5.6 0l13-13a4 4 0 1 0-5.6-5.6L68 82.3V66Z"/></g>
+</defs></svg>
+</div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const seg=(t,a,b)=>cl((t-a)/(b-a));
+const oc=x=>1-Math.pow(1-x,3), ob=x=>{const c=1.70158+1;return 1+c*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2)};
+const io=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+window.DUR=24;
+// scene windows [start,end]
+const SC={s1:[0,3.2],s2:[3,7.2],s3:[7,10.7],s4:[10.5,14.2],s5:[14,17.7],s6:[17.5,20.2],s7:[20,24]};
+const CNTRY=[["US","$4.99","United States"],["GB","£4.99","United Kingdom"],["CA","C$6.99","Canada"],["AU","A$7.99","Australia"],["IN","₹449","India"],["DE","4,99 €","Germany"],["FR","4,99 €","France"],["JP","¥800","Japan"],["BR","R$ 29,90","Brazil"],["MX","MX$ 99","Mexico"]];
+$("#cs").innerHTML=CNTRY.map(c=>`<div class="chip" style="text-align:center">${c[0]}</div>`).join("");
+// similar web
+const W=$("#web");const nodes=[[450,410,"Pixel Lab","#f97316,#ec4899",78],[150,150,"Snapwise","#22d3ee,#3b82f6",52],[760,140,"Filmstrip","#a78bfa,#6366f1",52],[110,640,"Lumen Raw","#34d399,#059669",52],[780,650,"Tonal","#fbbf24,#f97316",52]];
+let svg="";nodes.slice(1).forEach((n,i)=>svg+=`<line class="ln" x1="450" y1="410" x2="${n[0]}" y2="${n[1]}" stroke="#60a5fa" stroke-width="3" stroke-dasharray="8 10" opacity="0"/>`);
+nodes.forEach((n,i)=>{const g=n[3].split(",");svg+=`<g class="nd" transform="translate(${n[0]} ${n[1]})"><defs><linearGradient id="g${i}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${g[0]}"/><stop offset="1" stop-color="${g[1]}"/></linearGradient></defs><g class="in"><rect x="${-n[4]}" y="${-n[4]}" width="${n[4]*2}" height="${n[4]*2}" rx="${n[4]*.24}" fill="url(#g${i})"/><text y="${n[4]*.28}" text-anchor="middle" font-size="${n[4]*.9}" font-weight="800" fill="#fff" font-family="Inter">${n[2][0]}</text><text y="${n[4]+42}" text-anchor="middle" font-size="26" font-weight="700" fill="#f1f5ff" font-family="Inter">${n[2]}</text></g></g>`});
+W.innerHTML=svg;
+function setScene(id,t){const [a,b]=SC[id];const el=$("#"+id);const f=Math.min(seg(t,a,a+.35),1-seg(t,b-.3,b));el.style.opacity=(t>=a&&t<=b)?f:0;return t-a}
+window.cues={s:Object.values(SC).map(v=>v[0])};
+window.renderAt=function(t){
+ $("#grid").style.transform=`translate(${-t*10}px,${-t*6}px)`;
+ // S1
+ let u=setScene("s1",t);
+ $("#l1").style.transform=`translateY(${(1-ob(seg(u,0,.7)))*-140}px) scale(${.6+.4*ob(seg(u,0,.7))})`;
+ $("#l1").style.opacity=seg(u,0,.2);
+ for(const [id,a] of [["h1a",.55],["h1b",1.1],["h1c",1.8]]){const k=oc(seg(u,a,a+.5));$("#"+id).style.opacity=k;$("#"+id).style.transform=`translateY(${(1-k)*40}px)`}
+ $("#cnt").textContent="~"+(1.5*oc(seg(u,1.8,3))).toFixed(1)+"M";
+ // S2
+ u=setScene("s2",t);
+ const cap=oc(seg(u,0.1,.7));$("#s2 .cap").style.cssText+=`;opacity:${cap};margin-left:${(1-cap)*-40}px`;
+ const win=oc(seg(u,0,.7));$("#s2 .win").style.transform=`translateX(${(1-win)*120}px)`;$("#s2 .win").style.opacity=win;
+ const txt="photo editor";$("#q").textContent=txt.slice(0,Math.floor(seg(u,.6,1.6)*txt.length));$("#caret").style.opacity=Math.floor(t*3)%2?0:1;
+ $$("#s2 .r2").forEach((r,i)=>{const k=oc(seg(u,1.5+i*.18,2.1+i*.18));r.style.opacity=k;r.style.transform=`translateY(${(1-k)*40}px)`});
+ // S3
+ u=setScene("s3",t);
+ const c3=oc(seg(u,.1,.7));$("#s3 .cap").style.cssText+=`;opacity:${c3};margin-left:${(1-c3)*-40}px`;
+ const w3=oc(seg(u,0,.7));$("#s3 .win").style.transform=`translateX(${(1-w3)*120}px)`;$("#s3 .win").style.opacity=w3;
+ const h=io(seg(u,.5,2.2));$("#hist").style.strokeDashoffset=1-h;
+ const d=ob(seg(u,2.1,2.6));$("#dot").setAttribute("opacity",seg(u,2.1,2.3));$("#dot").setAttribute("r",14*d);
+ $("#old").style.color=u>2.2?"#9aa8c7":"#33456e";$("#old").style.textDecoration=u>2.2?"line-through":"none";
+ $("#new").style.opacity=seg(u,2.2,2.5);$("#new").style.transform=`scale(${.7+.3*ob(seg(u,2.2,2.7))})`;$("#new").style.display="inline-block";
+ $("#drop").style.opacity=seg(u,2.3,2.6);
+ // S4
+ u=setScene("s4",t);
+ const c4=oc(seg(u,.1,.7));$("#s4 .cap").style.cssText+=`;opacity:${c4};margin-left:${(1-c4)*-40}px`;
+ const w4=oc(seg(u,0,.7));$("#s4 .win").style.transform=`translateX(${(1-w4)*120}px)`;$("#s4 .win").style.opacity=w4;
+ const idx=Math.min(9,Math.max(0,Math.floor((u-.5)/.3)));
+ $$("#cs .chip").forEach((c,i)=>{c.className="chip"+(i===idx?" on":"")});
+ $("#loc").textContent=CNTRY[idx][1];$("#ctry").textContent=CNTRY[idx][2];
+ // S5
+ u=setScene("s5",t);
+ const c5=oc(seg(u,.1,.7));$("#s5 .cap").style.cssText+=`;opacity:${c5};margin-left:${(1-c5)*-40}px`;
+ $$("#cols .col").forEach((c,i)=>{const k=ob(seg(u,.3+i*.25,.95+i*.25));c.style.opacity=cl(k*1.2);c.style.transform=`translateX(${(1-k)*200}px) rotate(${(1-k)*3}deg)`});
+ // S6
+ u=setScene("s6",t);
+ const c6=oc(seg(u,.1,.7));$("#s6 .cap").style.cssText+=`;opacity:${c6};margin-left:${(1-c6)*-40}px`;
+ $$("#web .nd").forEach((n,i)=>{const k=ob(seg(u,.2+i*.2,.8+i*.2));n.querySelector(".in").style.transform=`scale(${k})`;n.querySelector(".in").style.opacity=cl(k)});
+ $$("#web .ln").forEach((l,i)=>{l.setAttribute("opacity",.7*seg(u,.7+i*.2,1.1+i*.2));l.setAttribute("stroke-dashoffset",-t*30)});
+ // S7
+ u=setScene("s7",t);
+ $("#l7").style.transform=`scale(${.5+.5*ob(seg(u,0,.7))}) rotate(${(1-oc(seg(u,0,.8)))*-20}deg)`;$("#l7").style.opacity=seg(u,0,.2);
+ for(const [id,a] of [["o1",.4],["o2",.9],["o3",1.5]]){const k=oc(seg(u,a,a+.5));$("#"+id).style.opacity=k;$("#"+id).style.transform=`translateY(${(1-k)*40}px)`}
+};
+window.ready=document.fonts.ready;
+if(!navigator.webdriver){const t0=performance.now();(function l(){renderAt(((performance.now()-t0)/1000)%DUR);requestAnimationFrame(l)})()}
+</script></body></html>
