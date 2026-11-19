@@ -15,13 +15,13 @@ const HOME_JSON_LD = {
   "@graph": [
     {
       "@type": "WebSite",
-      name: "iappstores",
-      url: "https://iappstores.com/",
+      name: "imodstore",
+      url: "https://imodstore.com/",
       description:
         "Browse direct IPA downloads from AltStore and SideStore repositories, including tweaked, modded, and patched iOS apps.",
       potentialAction: {
         "@type": "SearchAction",
-        target: "https://iappstores.com/?q={search_term_string}",
+        target: "https://imodstore.com/?q={search_term_string}",
         "query-input": "required name=search_term_string"
       }
     },
@@ -30,10 +30,10 @@ const HOME_JSON_LD = {
       mainEntity: [
         {
           "@type": "Question",
-          name: "What is iappstores?",
+          name: "What is imodstore?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "iappstores is a searchable browser for AltStore and SideStore-compatible repositories. It helps users find IPA listings, compare source notes, and view download options."
+            text: "imodstore is a searchable browser for AltStore and SideStore-compatible repositories. It helps users find IPA listings, compare source notes, and view download options."
           }
         },
         {
@@ -41,7 +41,7 @@ const HOME_JSON_LD = {
           name: "How are repositories indexed?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "iappstores fetches configured third-party repository JSON, normalizes AltStore-style app metadata, groups duplicate bundle identifiers, and serves cached results while background refreshes run."
+            text: "imodstore fetches configured third-party repository JSON, normalizes AltStore-style app metadata, groups duplicate bundle identifiers, and serves cached results while background refreshes run."
           }
         },
         {
@@ -49,7 +49,7 @@ const HOME_JSON_LD = {
           name: "How should users evaluate IPA source safety?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Users should verify the repository, compare source notes, check bundle identifiers and version details, and only install apps from sources they trust. iappstores indexes metadata and does not review IPA files for malware or privacy impact."
+            text: "Users should verify the repository, compare source notes, check bundle identifiers and version details, and only install apps from sources they trust. imodstore indexes metadata and does not review IPA files for malware or privacy impact."
           }
         }
       ]
@@ -103,7 +103,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="max-w-3xl space-y-2">
             <h2 className="text-2xl font-semibold tracking-tight">Browse IPA repositories with searchable metadata</h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              iappstores indexes iOS app repositories so you can search by app name, bundle ID, developer, source,
+              imodstore indexes iOS app repositories so you can search by app name, bundle ID, developer, source,
               category, and minimum iOS version. Duplicate bundle IDs are grouped into one app card with multiple IPA
               download options, making repeated listings easier to compare.
             </p>
@@ -120,9 +120,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
           <div className="grid gap-3 text-sm text-muted-foreground lg:grid-cols-2">
             <div className="rounded-lg bg-muted/40 p-4 ring-1 ring-foreground/10">
-              <h3 className="font-semibold text-foreground">What is iappstores?</h3>
+              <h3 className="font-semibold text-foreground">What is imodstore?</h3>
               <p className="mt-2 leading-6">
-                iappstores is a searchable browser for AltStore and SideStore-compatible repositories. It helps users
+                imodstore is a searchable browser for AltStore and SideStore-compatible repositories. It helps users
                 find IPA listings, compare source notes, and view download options.
               </p>
             </div>
@@ -144,12 +144,12 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
               <h3 className="font-semibold text-foreground">How should users evaluate IPA source safety?</h3>
               <p className="mt-2 leading-6">
                 Verify the repository, compare source notes, check bundle identifiers and version details, and only
-                install apps from sources you trust. iappstores indexes metadata and does not review IPA files for
+                install apps from sources you trust. imodstore indexes metadata and does not review IPA files for
                 malware or privacy impact.
               </p>
             </div>
             <div className="rounded-lg bg-muted/40 p-4 ring-1 ring-foreground/10 lg:col-span-2">
-              <h3 className="font-semibold text-foreground">Does iappstores host IPA files?</h3>
+              <h3 className="font-semibold text-foreground">Does imodstore host IPA files?</h3>
               <p className="mt-2 leading-6">
                 No. The site indexes repository metadata and links to original source download URLs. Repository notes
                 are kept separate from official App Store descriptions because they often mention tweaks, patches,

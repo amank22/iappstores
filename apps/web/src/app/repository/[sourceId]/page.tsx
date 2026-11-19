@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/repository/${encodeURIComponent(source.id)}`
     },
     openGraph: {
-      title: `${source.name} IPA Repository | iappstores`,
+      title: `${source.name} IPA Repository | imodstore`,
       description,
       url: `/repository/${encodeURIComponent(source.id)}`
     }

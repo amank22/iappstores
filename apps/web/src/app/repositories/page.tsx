@@ -8,13 +8,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "IPA Repositories",
-  description: "Browse indexed AltStore and SideStore compatible IPA repositories on iappstores.",
+  description: "Browse indexed AltStore and SideStore compatible IPA repositories on imodstore.",
   alternates: {
     canonical: "/repositories"
   },
   openGraph: {
-    title: "IPA Repositories | iappstores",
-    description: "Browse source repositories indexed by iappstores.",
+    title: "IPA Repositories | imodstore",
+    description: "Browse source repositories indexed by imodstore.",
     url: "/repositories"
   }
 };
@@ -29,7 +29,7 @@ export default async function RepositoriesPage() {
           <Badge variant="secondary">Sources</Badge>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">IPA repositories</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Browse AltStore and SideStore compatible repositories indexed by iappstores. Repository pages show source
+            Browse AltStore and SideStore compatible repositories indexed by imodstore. Repository pages show source
             details, category coverage, and canonical app links.
           </p>
         </section>

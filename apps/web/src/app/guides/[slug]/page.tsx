@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/guides/${guide.slug}`
     },
     openGraph: {
-      title: `${guide.title} | iappstores`,
+      title: `${guide.title} | imodstore`,
       description: guide.description,
       url: `/guides/${guide.slug}`
     }
@@ -55,7 +55,7 @@ export default async function GuidePage({ params }: PageProps) {
         mainEntityOfPage: getAbsoluteUrl(`/guides/${guide.slug}`),
         publisher: {
           "@type": "Organization",
-          name: "iappstores",
+          name: "imodstore",
           url: getAbsoluteUrl("/")
         }
       },

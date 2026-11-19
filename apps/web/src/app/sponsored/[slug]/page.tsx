@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: SponsoredPageProps): Promise<
     title,
     description,
     alternates: { canonical: path },
-    openGraph: { title, description, url: path, siteName: "iappstores", type: "website" },
+    openGraph: { title, description, url: path, siteName: "imodstore", type: "website" },
     twitter: { card: "summary", title, description }
   };
 }
@@ -103,10 +103,10 @@ export default async function SponsoredPage({ params }: SponsoredPageProps) {
         </section>
 
         <p className="rounded-lg bg-muted/40 p-4 text-xs leading-5 text-muted-foreground ring-1 ring-foreground/10">
-          This page is a paid placement. The text was written by {sponsor.name}, and iappstores has not tested the
+          This page is a paid placement. The text was written by {sponsor.name}, and imodstore has not tested the
           product.{" "}
           <Link href="/sponsor" className="underline underline-offset-4 hover:text-foreground">
-            Sponsor iappstores
+            Sponsor imodstore
           </Link>
         </p>
       </div>
