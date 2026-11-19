@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     title,
     description,
     url: "/correctmypaper",
-    siteName: "iappstores",
+    siteName: "imodstore",
     type: "website"
   },
   twitter: {

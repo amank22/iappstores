@@ -8,15 +8,15 @@ import { fetchSponsors } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-const title = "Sponsor iappstores: put your app on the home page";
+const title = "Sponsor imodstore: put your app on the home page";
 const description =
-  "Buy one of a few sponsor slots on the iappstores home page, with an optional dedicated page for your app. A flat monthly price, cancel any time.";
+  "Buy one of a few sponsor slots on the imodstore home page, with an optional dedicated page for your app. A flat monthly price, cancel any time.";
 
 export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: "/sponsor" },
-  openGraph: { title, description, url: "/sponsor", siteName: "iappstores", type: "website" },
+  openGraph: { title, description, url: "/sponsor", siteName: "imodstore", type: "website" },
   twitter: { card: "summary", title, description }
 };
 
@@ -29,7 +29,7 @@ const FAQ: Array<{ question: string; answer: string }> = [
   {
     question: "What does the dedicated page add?",
     answer:
-      "Your own page on iappstores.com with your icon, name, tagline and up to 3,000 characters of your text. It is listed in our sitemap and open to search engines, and your home page tile links to it. The button to your site is marked as a sponsored link, as search engines require for paid placements, so the page earns you visibility in search rather than link credit. The page comes down when the sponsorship ends."
+      "Your own page on imodstore.com with your icon, name, tagline and up to 3,000 characters of your text. It is listed in our sitemap and open to search engines, and your home page tile links to it. The button to your site is marked as a sponsored link, as search engines require for paid placements, so the page earns you visibility in search rather than link credit. The page comes down when the sponsorship ends."
   },
   {
     question: "Is one slot better than another?",
@@ -85,7 +85,7 @@ export default async function SponsorPage() {
         title: "Slot + dedicated page",
         points: [
           "Everything in the sponsor slot",
-          "Your own page on iappstores.com, open to search engines",
+          "Your own page on imodstore.com, open to search engines",
           "Up to 3,000 characters of your own text"
         ]
       });
@@ -108,9 +108,9 @@ export default async function SponsorPage() {
               </Badge>
             ) : null}
           </div>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Put your app on the iappstores home page</h1>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Put your app on the imodstore home page</h1>
           <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-            iappstores is where people look for iOS apps to sideload. A sponsor slot puts your app in a row at the top of
+            imodstore is where people look for iOS apps to sideload. A sponsor slot puts your app in a row at the top of
             the home page, above the app list, for <span className="font-semibold text-foreground">${priceUsd} a month</span>.
             For <span className="font-semibold text-foreground">${pagePriceUsd} a month</span> you also get a dedicated
             page for your app that search engines can index. There are only {total > 0 ? total : "a few"} slots, so the

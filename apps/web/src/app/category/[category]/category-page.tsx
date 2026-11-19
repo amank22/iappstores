@@ -84,7 +84,7 @@ export function getCategoryMetadata(category: IndexableCategory, page = 1) {
       canonical: path
     },
     openGraph: {
-      title: `${label}${pageSuffix} | iappstores`,
+      title: `${label}${pageSuffix} | imodstore`,
       description: CATEGORY_DESCRIPTIONS[category],
       url: path
     }

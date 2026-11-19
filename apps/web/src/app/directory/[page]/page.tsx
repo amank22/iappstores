@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `IPA App Directory - Page ${page}`,
     description: `Alphabetical directory of iOS IPA apps from AltStore and SideStore repositories, page ${page}.`,
     alternates: { canonical: path },
-    openGraph: { title: `IPA App Directory - Page ${page} | iappstores`, url: path }
+    openGraph: { title: `IPA App Directory - Page ${page} | imodstore`, url: path }
   };
 }
 

@@ -2,7 +2,7 @@ import { getAbsoluteUrl } from "@/lib/site";
 
 export function GET(): Response {
   const card = {
-    name: "iappstores Catalog Agent",
+    name: "imodstore Catalog Agent",
     version: "1.0.0",
     description:
       "A read-only catalog interface for discovering and searching AltStore and SideStore-compatible iOS app repository metadata, source details, versions, and download options.",
@@ -14,7 +14,7 @@ export function GET(): Response {
       }
     ],
     provider: {
-      organization: "iappstores",
+      organization: "imodstore",
       url: getAbsoluteUrl("/")
     },
     documentationUrl: getAbsoluteUrl("/api-docs"),
