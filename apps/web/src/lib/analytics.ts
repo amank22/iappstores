@@ -95,3 +95,7 @@ export function trackHumanSignal(fields: { trigger: string; botdResult: "bot" | 
     event_category: "traffic_quality"
   });
 }
+
+export function trackPageLoaded(): void {
+  trackEvent("page_loaded", { event_category: "traffic_quality" });
+}

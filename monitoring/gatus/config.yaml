@@ -72,6 +72,55 @@ endpoints:
       - "[BODY].ok == true"
       - "[RESPONSE_TIME] < 2000"
 
+  # The app-data collector (amank22/iappstores-collector), by its Coolify network
+  # alias. "Data pipeline" is 200 while the daily run is on schedule (a successful
+  # run within 30 hours, or one in progress) and 503 otherwise.
+  - name: Collector health
+    group: internal
+    <<: *defaults
+    url: http://iappstores-collector:8080/healthz
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 3000"
+
+  - name: Data pipeline
+    group: internal
+    <<: *defaults
+    interval: 15m
+    url: http://iappstores-collector:8080/healthz/pipeline
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].ok == true"
+    alerts:
+      - type: email
+        failure-threshold: 2
+        success-threshold: 1
+        send-on-resolved: true
+        description: "the collector's daily pipeline is behind schedule"
+
+  # The private catalog API (read side for the frontends), by its Coolify alias.
+  # /healthz checks its database and Valkey cache; /v1/meta proves a catalog is built.
+  - name: Catalog API
+    group: internal
+    <<: *defaults
+    interval: 5m
+    url: http://iappstores-catalog-api:8080/healthz
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].ok == true"
+      - "[BODY].cache_ok == true"
+      - "[RESPONSE_TIME] < 3000"
+
+  - name: Catalog API data
+    group: internal
+    <<: *defaults
+    interval: 15m
+    url: http://iappstores-catalog-api:8080/v1/meta
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].directory_ready_apps > 10000"
+      - "[RESPONSE_TIME] < 5000"
+
   # --- Public: through Cloudflare and the tunnel, the path real users take ------
   - name: iappstores.com
     group: public
