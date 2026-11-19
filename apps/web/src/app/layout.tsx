@@ -7,6 +7,7 @@ import Script from "next/script";
 import { cn } from "@/lib/utils";
 import { SiteHeader } from "@/components/site-header";
 import { HumanSignal } from "@/components/human-signal";
+import { MigrationBanner } from "@/components/migration-banner";
 
 const googleAnalyticsId = "G-VSPK9T0VT9";
 
@@ -101,6 +102,7 @@ gtag('js', new Date());
 gtag('config', '${googleAnalyticsId}');`}
         </Script>
         <HumanSignal />
+        <MigrationBanner />
         <SiteHeader />
         {children}
       </body>
