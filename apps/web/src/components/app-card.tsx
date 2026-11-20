@@ -11,6 +11,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { trackAppDetailModalOpen, trackDownloadClick } from "@/lib/analytics";
 import { readDownloadedAppIds, recordDownloadedApp } from "@/lib/download-history";
 import { getAnonymousSessionId } from "@/lib/anonymous-session";
+import { appStoreLinkProps, withAppStoreAttribution } from "@/lib/app-store-link";
 
 const appBadgeClassName = "h-6 max-w-full px-2.5 text-xs";
 const appMetricBadgeClassName = "h-6 max-w-full gap-1 px-2.5 text-xs";
@@ -384,7 +385,7 @@ export const AppCard = memo(function AppCard({
   const displayDeveloper = appStore?.developerName ?? app.developerName ?? "Unknown developer";
   const displayIconUrl = appStore?.artworkUrl512 ?? appStore?.artworkUrl100 ?? app.iconUrl;
   const primaryGenreName = appStore?.primaryGenreName ?? null;
-  const appInfoUrl = appStore?.trackViewUrl ?? app.appStoreUrl ?? getAppStoreSearchUrl(app);
+  const appInfoUrl = withAppStoreAttribution(appStore?.trackViewUrl ?? app.appStoreUrl ?? getAppStoreSearchUrl(app));
   const primaryDescription = appStore?.description ?? app.description;
   const isRepositoryDescription = !appStore?.description && Boolean(app.description);
   const primaryDescriptionTranslateUrl =
@@ -712,7 +713,7 @@ export const AppCard = memo(function AppCard({
 
         <CardFooter className="grid grid-cols-2 gap-3 p-4 pt-0 sm:p-6 sm:pt-0">
           <Button asChild className="w-full" variant="secondary">
-            <a href={appInfoUrl} rel="noreferrer" target="_blank" onClick={(event) => event.stopPropagation()}>
+            <a href={appInfoUrl} {...appStoreLinkProps} onClick={(event) => event.stopPropagation()}>
               {appStore?.trackViewUrl || app.appStoreUrl ? "View App Store" : "Search App Store"}
             </a>
           </Button>

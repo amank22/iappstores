@@ -12,8 +12,11 @@ ARG NEXT_PUBLIC_SITE_URL=$SITE_URL
 # build time, not just as a runtime ENV in the runner stage below (a same-value runtime
 # ENV there is a no-op for this specific variable).
 ARG API_INTERNAL_URL=http://iappstores-api-go:4000
+# Optional Apple affiliate token (inlined at build time); see apps/web/src/lib/app-store-link.ts.
+ARG NEXT_PUBLIC_APPLE_AFFILIATE_TOKEN=
 ENV SITE_URL=$SITE_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_APPLE_AFFILIATE_TOKEN=$NEXT_PUBLIC_APPLE_AFFILIATE_TOKEN
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 # Emit .next/standalone: a minimal server.js plus only the node_modules files it needs.
 ENV NEXT_OUTPUT=standalone
