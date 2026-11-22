@@ -1,6 +1,6 @@
 # Debian-based (glibc) to match the distroless runtime below, so any native module
 # binaries installed here are the ones that run there.
-FROM oven/bun:1.4.4-slim AS build
+FROM oven/bun:1.4.5-slim AS build
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN bun run build
 # Distroless Bun: the Bun runtime and CA certificates, with no shell, package manager or
 # curl. Only the standalone server, static assets and public files are copied in, instead
 # of the whole workspace with every dev dependency.
-FROM oven/bun:1.4.4-distroless AS runner
+FROM oven/bun:1.4.5-distroless AS runner
 
 WORKDIR /app
 
